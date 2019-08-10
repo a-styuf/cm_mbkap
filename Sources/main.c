@@ -7,48 +7,81 @@
 #include "adc.h"
 #include "wdt.h"
 #include "uarts.h"
+#include "timers.h"
+#include "mbkap.h"
+#include "gpio.h"
+#include "power_management.h"
+//Настройки программы в файле mbkap.c
 
-
-#define MKO_Id      22
-
-
+//
+extern typeCMParameters cm;
+extern typeSysFrames sys_frame;
+extern typeSTMstruct stm;
+//
 uint8_t Buff[256];
 extern uint16_t ADCData[];
-
+uint8_t leng, dbg_status;
+uint16_t reg_addr, dbg_data[32];
 
 int main() {
-  uint8_t leng;
-  uint16_t adc_data[7];
-
-//  WDT_Init();
-  System_Init();
-//  MKO_Init(MKO_Id);
-  ADC_Init();
-  UART0_Init();
-  sprintf((char*)Buff, "START\n\r");
-  UART0_SendPacket(Buff, strlen((char*)Buff), 0);
-
-//  *((uint32_t*)0x50000000) = 0x12345678;
-  
-  while(1) {
-    WDRST;
-    if(UART0_GetPacket(Buff, &leng)) {
-      if(Buff[0] == 'A') {
-        NVIC_DisableIRQ(IRQn_ADC0);
-        memcpy(adc_data, ADCData, sizeof(adc_data));
-        NVIC_EnableIRQ(IRQn_ADC0);
-        sprintf((char*)Buff, "%4d %4d %4d %4d %4d %4d %4d\n\r", adc_data[0], adc_data[1], adc_data[2], adc_data[3], adc_data[4], adc_data[5], adc_data[6]);
-        UART0_SendPacket(Buff, strlen((char*)Buff), 0);
+	uint8_t leng;
+	uint16_t cm_param_count = 0, sys_frame_count = 0, meas_interv_count = 0; //счетчики для отслеживанияинтервалов
+	// инициализация переферии
+	System_Init();
+	MKO_Init(get_mko_addr(MKO_ID)); //установить 0 для работы только от адреса, задаваемого соединителем
+	ADC_Init();
+	UART0_Init();
+	Timers_Init();
+	// инициализация структур
+	CM_Parame_Start_Init(&cm);
+	Sys_Frame_Init(&sys_frame);
+	//
+	Pwr_All_Perepherial_Devices_On();
+	// запускаем вотчдог
+	WDT_Init();	
+	// запускаем таймер для таймслотов
+	Timers_Start(0, SLOT_TIME_MS);
+	//
+	while(1) {
+		WDRST;
+		//Циклограмма для опроса и формирования системного кадра: используем счетчик секунд для отсчета интервала, что бы не занимать таймер
+		if (Timers_Status(0))
+		{   
+			Timers_Start(0, SLOT_TIME_MS); // перезапускаем таймер для формирования слота времени (возможная проблема - пропуск слота)
+			//***формирование и запись параметров в память для их использования в случае выключения питания
+            cm_param_count += 1;
+            if (cm_param_count >= CM_PARAM_SAVE_PERIOD_S*10)
+            {
+				cm_param_count = 0;
+				//
+				Pwr_current_process(&cm);
+				Pwr_Ctrl_by_State(cm.pwr_state);
+                cm.operating_time += CM_PARAM_SAVE_PERIOD_S; //todo: возможная проблема - расхождения времени и времени наработки из-за пропусков секундных интервалов
+                cm.time = Get_Time_s();
+                Write_Parameters(&cm);
+            }
+			//***формируем системный кадр
+            sys_frame_count += 1;  
+            if (sys_frame_count >= cm.sys_interval*10) 
+            {
+				sys_frame_count = 0;
+				//
+                Sys_Frame_Build(&sys_frame, &cm);
+            }
+		}
+		//Прием команд по МКО
+        if (MKO_IVect(&cm.mko_error, &cm.mko_error_cnt) != 0x0000){			
+		}
+		//Отладочный порт //работает по команде 0х10 !!!
+        if(DebugGetPacket(&reg_addr, dbg_data, &leng) == 0x01) 
+        {
+            if((reg_addr == 0x00) & (leng >= 2)){  // проверка адресации
+				dbg_status = ((dbg_data[1] >> 8) & 0x01) ^ 0x01;
+			}
+			else if ((reg_addr == 0x01) & (leng >= 2)) {
+				GPIO_Pwr((dbg_data[0] >> 8), (dbg_data[1] >> 8) & 0x01);
+			}
         }
-      else if(Buff[0] == 'B') {
-        sprintf((char*)Buff, "%X\n\r", EXT_BUS_CNTR->RGN0_CNTRL);
-        UART0_SendPacket(Buff, strlen((char*)Buff), 0);
-        }
-      else if(Buff[0] == 'R') {
-        PORTE->SRXTX = 0x10000;
-        }
-      }
-    }
-
+	}
 }
 

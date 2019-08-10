@@ -1,27 +1,19 @@
 #ifndef _EEROM_H_
 #define _EEROM_H_
 
-#define IROM_OFFS     0x0
+#define MEM1_OFFSET 0x50000000 // согласно описанию на 1986У
+#define MEM2_OFFSET 0x60000000
 
+#define MEM1_SIZE 0x00020000 // 1Mb
+#define MEM2_SIZE 0x00020000 // 1Mb
 
-#pragma pack(2)
+#define MEM1_FRAME_SIZE 0x0800 // 2048 кадров
+#define MEM2_FRAME_SIZE 0x0800 //2048 кадров
 
-typedef struct {
-  uint32_t offs;
-  uint32_t sram_addr;
-  uint32_t start_addr;
-  uint32_t prog_len;
-  uint16_t crc_cnt_len;
-  uint16_t crc;
-  }typeEEProgHeader;
+#define MAX_FRAME_SIZE 0x0800 // 2048 кадров - для работы с одной памятью 3DMR1M08
 
-
-void SPI_Init(void);
-uint8_t SPI_Exchange(uint8_t data);
-void SPI_MExchange(uint8_t *data_in, uint8_t *data_out, int len);
-void EE_Write(uint32_t ee_addr, uint8_t *data_ptr, uint16_t leng);
-void EE_Read(uint32_t ee_addr, uint8_t *data_ptr, uint16_t leng);
-void EE_Prog(void);
-  
+int8_t Write_Frame(uint16_t address, uint8_t* frame);
+int8_t Read_Frame(uint16_t address, uint8_t* frame);
+uint16_t Get_Max_Data_Frame_Num(void);
 
 #endif
