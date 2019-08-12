@@ -9,6 +9,7 @@
 #include "uarts.h"
 #include "timers.h"
 #include "mbkap.h"
+#include "stm.h"
 #include "gpio.h"
 #include "power_management.h"
 //Настройки программы в файле mbkap.c
@@ -32,6 +33,7 @@ int main() {
 	ADC_Init();
 	UART0_Init();
 	Timers_Init();
+	Init_STM(&stm, &cm);
 	// инициализация структур
 	CM_Parame_Start_Init(&cm);
 	Sys_Frame_Init(&sys_frame);
@@ -53,12 +55,17 @@ int main() {
             if (cm_param_count >= CM_PARAM_SAVE_PERIOD_S*10)
             {
 				cm_param_count = 0;
-				//
+				// работа с потреблением
 				Pwr_current_process(&cm);
 				Pwr_Ctrl_by_State(cm.pwr_state);
+				//работа со временем ЦМ
                 cm.operating_time += CM_PARAM_SAVE_PERIOD_S; //todo: возможная проблема - расхождения времени и времени наработки из-за пропусков секундных интервалов
                 cm.time = Get_Time_s();
+				//не забываем сохранять структуру в память
                 Write_Parameters(&cm);
+				//выставляем СТМ
+				stm.NKPBE = (GPIO_Get_CM_Id() != 0) ? 10: 0;
+				STM_1s_step(&stm, &cm);
             }
 			//***формируем системный кадр
             sys_frame_count += 1;  
@@ -68,12 +75,20 @@ int main() {
 				//
                 Sys_Frame_Build(&sys_frame, &cm);
             }
+			//***формируем системный кадр
+			meas_interv_count += 1;
+			if (meas_interv_count >= cm.measure_interval*10) 
+            {
+				meas_interv_count = 0;
+				//
+				                
+            }			
 		}
 		//Прием команд по МКО
         if (MKO_IVect(&cm.mko_error, &cm.mko_error_cnt) != 0x0000){			
 		}
 		//Отладочный порт //работает по команде 0х10 !!!
-        if(DebugGetPacket(&reg_addr, dbg_data, &leng) == 0x01) 
+        if(Debug_Get_Packet(&reg_addr, dbg_data, &leng) == 0x01) 
         {
             if((reg_addr == 0x00) & (leng >= 2)){  // проверка адресации
 				dbg_status = ((dbg_data[1] >> 8) & 0x01) ^ 0x01;

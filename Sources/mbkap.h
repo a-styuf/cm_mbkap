@@ -249,7 +249,7 @@ uint8_t get_mko_addr(uint8_t def_addr);
 // управление питанием
 void  Pwr_current_process(typeCMParameters* cm);
 // отладочный интерфейс
-int8_t DebugGetPacket (uint16_t* reg_addr, uint16_t* data, uint8_t* leng);
+int8_t Debug_Get_Packet (uint16_t* reg_addr, uint16_t* data, uint8_t* leng);
 // Внутрениие рабочие функции
 uint32_t _rev_u32 (volatile uint32_t val); //перестановка по 16-ти битным словам
 void _buff_rev16(uint16_t *buff, uint8_t leng_16);

@@ -249,7 +249,7 @@ void  Pwr_current_process(typeCMParameters* cm)
 }
 
 //отладочный интерфейс
-int8_t DebugGetPacket (uint16_t* reg_addr, uint16_t* data, uint8_t* leng)
+int8_t Debug_Get_Packet (uint16_t* reg_addr, uint16_t* data, uint8_t* leng)
 {
     int8_t status = 0;
     uint8_t data_leng = 0;
