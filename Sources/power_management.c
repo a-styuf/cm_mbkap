@@ -9,8 +9,8 @@ extern uint16_t ADCData[7];
 //функции для формирования системных данных
 uint8_t Get_Modules_Current(uint16_t *currents, uint16_t *pwr_bounds)
 {   
-    float cal_a[7] = {0.089, 0.089, 0.089, 0.089, 0.089, 0.089, 0.089};  // калибровки для 7-ми каналов измерения токов [МБКАП, ЦМ, МПП100, МПП27, ДИР, ДНТ, АДИИ]
-    float cal_b[7] = {0.240, 0.240, 0.240, 0.240, 0.240, 0.240, 0.240};
+    float cal_a[7] = {0.322, 0.017, 0.017, 0.017, 0.322, 0.322, 0.322};  // калибровки для 7-ми каналов измерения токов [МБКАП, ЦМ, МПП100, МПП27, ДИР, ДНТ, АДИИ]
+    float cal_b[7] = {0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000};  // насчитано исходя из: 1) Vref = 3.3, АЦП-12бит.
     int8_t i = 0, status = 0x00;
     uint16_t adc_data[7];
     NVIC_DisableIRQ(IRQn_ADC0);
@@ -42,6 +42,16 @@ void Pwr_All_Perepherial_Devices_On(void) // GPIO_Pwr(uint8_t pwr_num, uint8_t o
 	Timers_Start(1, 200); 
     while (Timers_Status(1) == 0)  GPIO_Pwr(5, 0x1); //DNT
 	Timers_Start(1, 200); 
+    while (Timers_Status(1) == 0)  GPIO_Pwr(6, 0x1); //ADII
+    Timers_Start(1, 1000); 
+    while (Timers_Status(1) == 0);
+};
+
+void Pwr_Perepherial_Devices_On(void) 
+{
+	Timers_Start(1, 500); 
+    while (Timers_Status(1) == 0)  GPIO_Pwr(5, 0x1); //DNT
+	Timers_Start(1, 500); 
     while (Timers_Status(1) == 0)  GPIO_Pwr(6, 0x1); //ADII
     Timers_Start(1, 1000); 
     while (Timers_Status(1) == 0);

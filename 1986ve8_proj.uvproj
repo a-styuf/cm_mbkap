@@ -477,6 +477,21 @@
               <FileType>1</FileType>
               <FilePath>.\Sources\crc16.c</FilePath>
             </File>
+            <File>
+              <FileName>stm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Sources\stm.c</FilePath>
+            </File>
+            <File>
+              <FileName>mpp.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Sources\mpp.c</FilePath>
+            </File>
+            <File>
+              <FileName>dir.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Sources\dir.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -966,6 +981,21 @@
               <FileName>crc16.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\Sources\crc16.c</FilePath>
+            </File>
+            <File>
+              <FileName>stm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Sources\stm.c</FilePath>
+            </File>
+            <File>
+              <FileName>mpp.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Sources\mpp.c</FilePath>
+            </File>
+            <File>
+              <FileName>dir.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Sources\dir.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -1457,6 +1487,21 @@
               <FileName>crc16.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\Sources\crc16.c</FilePath>
+            </File>
+            <File>
+              <FileName>stm.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Sources\stm.c</FilePath>
+            </File>
+            <File>
+              <FileName>mpp.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Sources\mpp.c</FilePath>
+            </File>
+            <File>
+              <FileName>dir.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Sources\dir.c</FilePath>
             </File>
           </Files>
         </Group>

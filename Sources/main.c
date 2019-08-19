@@ -12,21 +12,35 @@
 #include "stm.h"
 #include "gpio.h"
 #include "power_management.h"
+#include "mpp.h"
+#include "dir.h"
 //Настройки программы в файле mbkap.c
 
 //
 extern typeCMParameters cm;
 extern typeSysFrames sys_frame;
 extern typeSTMstruct stm;
+// Структуры для управления периферией
+typeMPPDevice mpp27; 
+typeMPPDevice mpp100; 
+typeDIRDevice dir; 
+typeDNTDevice dnt; 
+typeADIIDevice adii; 
+
+typeDevStartInformation mpp27_init_inf;
+typeDevStartInformation mpp100_init_inf;
+typeDevStartInformation dir_init_inf;
+
+extern typeMKOControl mko_dev;
 //
 uint8_t Buff[256];
 extern uint16_t ADCData[];
 uint8_t leng, dbg_status;
 uint16_t reg_addr, dbg_data[32];
+uint64_t uint64_val;
 
 int main() {
-	uint8_t leng;
-	uint16_t cm_param_count = 0, sys_frame_count = 0, meas_interv_count = 0; //счетчики для отслеживанияинтервалов
+	uint16_t cm_param_count = 0, sys_frame_count = 0, meas_interv_count = 0, adii_interv_count = 0; //счетчики для отслеживанияинтервалов
 	// инициализация переферии
 	System_Init();
 	MKO_Init(get_mko_addr(MKO_ID)); //установить 0 для работы только от адреса, задаваемого соединителем
@@ -34,11 +48,20 @@ int main() {
 	UART0_Init();
 	Timers_Init();
 	Init_STM(&stm, &cm);
-	// инициализация структур
+	// инициализация структур управления ЦМ
 	CM_Parame_Start_Init(&cm);
 	Sys_Frame_Init(&sys_frame);
-	//
-	Pwr_All_Perepherial_Devices_On();
+	//включение питания периферии
+	Pereph_On_and_Get_ID_Frame(2, &mpp27_init_inf);
+	Pereph_On_and_Get_ID_Frame(3, &mpp100_init_inf);
+	Pereph_On_and_Get_ID_Frame(4, &dir_init_inf);
+	Pwr_Perepherial_Devices_On(); //включаем ДНТ и АДИИ
+	// запускаем работу периферии
+	MPP_Init(&mpp27, _frame_definer(0, DEV_NUM, 0, MPP27_FRAME_NUM), MPP27_FRAME_NUM, MPP27_ID, MPP27_DEF_OFFSET);
+	MPP_Init(&mpp100, _frame_definer(0, DEV_NUM, 0, MPP100_FRAME_NUM), MPP100_FRAME_NUM, MPP100_ID, MPP100_DEF_OFFSET);
+	DIR_Init(&dir, _frame_definer(0, DEV_NUM, 0, DIR_FRAME_NUM), DIR_FRAME_NUM, DIR_ID);
+	DNT_Init(&dnt, _frame_definer(0, DEV_NUM, 0, DNT_FRAME_NUM), _frame_definer(0, DNT_DEV_NUM, 5, DNT_FRAME_NUM), DNT_FRAME_NUM, DNT_MKO_ADDR);
+	ADII_Init(&adii, _frame_definer(0, DEV_NUM, 0, ADII_FRAME_NUM), ADII_FRAME_NUM);
 	// запускаем вотчдог
 	WDT_Init();	
 	// запускаем таймер для таймслотов
@@ -75,19 +98,93 @@ int main() {
 				//
                 Sys_Frame_Build(&sys_frame, &cm);
             }
-			//***формируем системный кадр
+			//***формирование флагов на запуск измерений по измерительному интервалу
 			meas_interv_count += 1;
 			if (meas_interv_count >= cm.measure_interval*10) 
             {
 				meas_interv_count = 0;
 				//
-				                
+				cm.normal_mode_state = 	(1<<MPP27_FRAME_NUM)|
+															(1<<MPP100_FRAME_NUM)|
+															(1<<DIR_FRAME_NUM)|
+															(1<<DNT_FRAME_NUM);
             }			
+			//***формирование флагов на запуск измерений по измерительному интервалу
+			adii_interv_count += 1;
+			if (adii_interv_count >= cm.adii_interval*10) 
+            {
+				adii_interv_count = 0;
+				//
+				cm.normal_mode_state = (1<<ADII_FRAME_NUM);
+            }			
+			//***обработка тайм слотов
+			switch(meas_interv_count%10){
+				case 0:  // МПП: запрос 2х структур
+					if (cm.normal_mode_state & (0x1 << MPP27_FRAME_NUM)) MPP_struct_request(&mpp27);
+					if (cm.normal_mode_state & (0x1 << MPP100_FRAME_NUM)) MPP_struct_request(&mpp100);
+					break;
+				case 1:  // запрос количества помех в архиве и границы срабатывания
+					if (cm.normal_mode_state & (0x1 << MPP27_FRAME_NUM)) MPP_arch_count_offset_get(&mpp27);
+					if (cm.normal_mode_state & (0x1 << MPP100_FRAME_NUM)) MPP_arch_count_offset_get(&mpp100);
+					break;
+				case 2: // МПП: забор 2х структур 
+					if (cm.normal_mode_state & (0x1 << MPP27_FRAME_NUM)) {
+						MPP_struct_get(&mpp27, &cm);
+					}
+					if (cm.normal_mode_state & (0x1 << MPP100_FRAME_NUM)) {
+						MPP_struct_get(&mpp100, &cm);
+					}
+					cm.normal_mode_state &= ~((1<<MPP27_FRAME_NUM)|(1<<MPP100_FRAME_NUM));
+					break;
+				case 3:  // ДИР: чтение резуьтата и запуск измерения
+					if (cm.normal_mode_state & (0x1 << DIR_FRAME_NUM)) {
+						DIR_Data_Get(&dir, &cm);
+						DIR_Start_Measurement(&dir);
+						cm.normal_mode_state &= ~(1<<DIR_FRAME_NUM);
+					}
+					break;
+				case 4: // ДНТ: чтение результата запроса запуска измерения и отправка запроса на чтение результата
+					if (cm.normal_mode_state & (0x1 << DNT_FRAME_NUM)){
+						DNT_MKO_Measur_Finish(&dnt, &cm);
+						DNT_MKO_Read_Initiate(&dnt);
+					}
+					break;
+				case 5: // ДНТ: чтение результата запроса чтения результатов и отправка запроса на запуск измерения
+					if (cm.normal_mode_state & (0x1 << DNT_FRAME_NUM)){
+						DNT_MKO_Read_Finish(&dnt, &cm);
+						DNT_MKO_Measure_Initiate(&dnt);
+						//
+						cm.normal_mode_state &= ~(1<<DNT_FRAME_NUM);
+					}
+					break;
+				case 6: // АДИИ: 
+					if (cm.normal_mode_state & (0x1 << ADII_FRAME_NUM)){
+						ADII_Read_Data(&adii, &cm);
+						ADII_Meas_Start(&adii);  //управление командой происходит переменной adii.ctrl.mode: 1 - режим тестирования, 0 - нормальный режим
+						//
+						cm.normal_mode_state &= ~(1<<ADII_FRAME_NUM);
+					}
+					break;
+				case 7:
+					break;
+				case 8:
+					break;
+				case 9:
+					break;
+			}
 		}
-		//Прием команд по МКО
-        if (MKO_IVect(&cm.mko_error, &cm.mko_error_cnt) != 0x0000){			
-		}
-		//Отладочный порт //работает по команде 0х10 !!!
+		//***Прием команд по МКО
+        if (MKO_IVect(&cm.mko_error, &cm.mko_error_cnt) != 0x0000){
+			if (mko_dev.subaddr == 0x11) {  //обработка командных сообщений
+                if (mko_dev.data[0] == 0x0001) {  //  синхронизация времени
+					Get_Time_sec_parts(&cm.sync_time_s, &cm.sync_time_low);
+					uint64_val = ((uint64_t)mko_dev.data[1] << 32) + ((uint64_t)mko_dev.data[2] << 16); // + ((uint64_t)mko_dev.data[3] << 0)) & 0xFFFFFFFFFFFF; часть для дробной синхронизации
+					Time_Set(uint64_val, &cm.diff_time_s, &cm.diff_time_low);
+					cm.sync_num += 1;
+                }
+			}    
+        }
+		//***Отладочный порт //работает по команде 0х10 !!!
         if(Debug_Get_Packet(&reg_addr, dbg_data, &leng) == 0x01) 
         {
             if((reg_addr == 0x00) & (leng >= 2)){  // проверка адресации

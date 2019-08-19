@@ -18,11 +18,9 @@ extern typeSTMstruct stm;
 
 void MKO_Init(uint8_t mko_addr) 
 {
-	uint32_t saved_reg;
 	CLK_CNTR->KEY = _KEY_;
 	CLK_CNTR->PER1_CLK |= (1<<19);  //enable clock for MIL0
 	CLK_CNTR->PER0_CLK |= (1<<13);  //clock for PORTA
-	// saved_reg = CLK_CNTR->PER0_CLK;
 	//
 	MIL_STD_15531->CONTROL = 1;  //reset
 	MIL_STD_15531->CONTROL = (1<<20)|(40<<11)|(3<<4)|(2<<2)|((mko_addr & 0x1F)<<6);
@@ -37,7 +35,6 @@ void MKO_Init(uint8_t mko_addr)
 	PORTA->SPWR[1] =   0x003C0F00;
 	PORTA->SPULLDOWN = 0xFFFFFFFF;
 	//
-	//CLK_CNTR->PER0_CLK = saved_reg;
 	/*enable interrupt*/
 	MIL_STD_15531->INTEN = 0x0004;  //valmess int
 	NVIC_EnableIRQ(IRQn_MIL_STD_15531);

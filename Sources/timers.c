@@ -117,7 +117,7 @@ uint8_t Timers_Status(uint8_t num) // если статус 0 - таймер е�
 }
 
 // работа с реальным временем
-void Time_Set(uint64_t time, int32_t* diff_time_s, int8_t* diff_time_low) // time в 1/(2^16) секундах
+void Time_Set(uint64_t time, int16_t* diff_time_s, int8_t* diff_time_low) // time в 1/(2^16) секундах
 {
     volatile int64_t diff_time = 0;
     uint64_t current_time = 0;
