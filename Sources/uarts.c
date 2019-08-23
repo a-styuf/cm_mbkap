@@ -57,6 +57,15 @@ void UART0_SendPacket(uint8_t *buff, uint8_t leng, uint8_t en_crc_flg) {
   MDR_UART0->CR |= (1<<9);  //вновь разрешение приема
 }
 
+int8_t UART0_PacketInWaitingOrReady(void)
+{
+	if ((MDR_TMR3->STATUS & (1<<1) == 0) || (Rx0BuffPtr)){
+		return 1;
+	}
+	else {
+		return 0;
+	}
+}
 
 int8_t UART0_GetPacket(uint8_t *buff, uint8_t *leng) {
   NVIC_DisableIRQ(IRQn_UART0); //

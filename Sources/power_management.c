@@ -31,7 +31,7 @@ uint8_t Get_Modules_Current(uint16_t *currents, uint16_t *pwr_bounds)
     return status;
 }
 
-void Pwr_All_Perepherial_Devices_On(void) // GPIO_Pwr(uint8_t pwr_num, uint8_t on)  //pwr_num: 0-CM, 1-MPP27, 2-MPP100, 3-DIR, 4-DNT, 5-ADII 
+void Pwr_On_All_Devices(void) // GPIO_Pwr(uint8_t pwr_num, uint8_t on)  //pwr_num: 0-CM, 1-MPP27, 2-MPP100, 3-DIR, 4-DNT, 5-ADII 
 {
 	Timers_Start(1, 200); 
     while (Timers_Status(1) == 0)  GPIO_Pwr(2, 0x1); //МПП27
@@ -44,6 +44,22 @@ void Pwr_All_Perepherial_Devices_On(void) // GPIO_Pwr(uint8_t pwr_num, uint8_t o
 	Timers_Start(1, 200); 
     while (Timers_Status(1) == 0)  GPIO_Pwr(6, 0x1); //ADII
     Timers_Start(1, 1000); 
+    while (Timers_Status(1) == 0);
+};
+
+void Pwr_Off_All_Devices(void) // GPIO_Pwr(uint8_t pwr_num, uint8_t on)  //pwr_num: 0-CM, 1-MPP27, 2-MPP100, 3-DIR, 4-DNT, 5-ADII 
+{
+	Timers_Start(1, 100); 
+    while (Timers_Status(1) == 0)  GPIO_Pwr(2, 0x0); //МПП27
+    Timers_Start(1, 100); 
+    while (Timers_Status(1) == 0)  GPIO_Pwr(3, 0x0); //МПП100
+    Timers_Start(1, 100); 
+    while (Timers_Status(1) == 0)  GPIO_Pwr(4, 0x0); //DIR
+	Timers_Start(1, 100); 
+    while (Timers_Status(1) == 0)  GPIO_Pwr(5, 0x0); //DNT
+	Timers_Start(1, 100); 
+    while (Timers_Status(1) == 0)  GPIO_Pwr(6, 0x0); //ADII
+    Timers_Start(1, 100); 
     while (Timers_Status(1) == 0);
 };
 

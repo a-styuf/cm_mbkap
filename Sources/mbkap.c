@@ -59,7 +59,7 @@ int8_t Write_Parameters(typeCMParameters* cm_ptr)   // загрузка пара
 int8_t Read_Parameters(typeCMParameters* cm_ptr)  // сохранение параметров из структуры в память
 {
 	int8_t state = 0, i;
-	uint16_t parameters_frame[64];
+	uint16_t parameters_frame[128];
 	uint16_t param_addr_array[4] = {0, MEM1_FRAME_SIZE-2, MEM1_FRAME_SIZE, MEM1_FRAME_SIZE+MEM2_FRAME_SIZE-2};
 	for(i=0; i<4; i++){
 		if (_read_cm_parameters_frame_with_crc16_check(param_addr_array[i], (uint8_t*)parameters_frame) < 0) state = -1;
@@ -97,7 +97,6 @@ void _cm_params_set_default(typeCMParameters* cm_ptr)
 {
 	cm_ptr->label = 0x0FF1; 
 	cm_ptr->time = 0x00000000;
-	cm_ptr->rst_cnt += 1; // увеличиваем счетчик включений ЦМ БЭ Луна
 	cm_ptr->bus_error_cnt = 0x00;
 	cm_ptr->bus_nans_cnt = 0x00;
 	cm_ptr->bus_nans_status = 0x00;
@@ -136,7 +135,15 @@ void CM_Parame_Start_Init(typeCMParameters* cm_ptr) //функция иници�
     }
 	else{
 		_cm_params_set_default(cm_ptr);
+		cm_ptr->rst_cnt += 1; // увеличиваем счетчик включений ЦМ БЭ Луна
 	}
+}
+
+void CM_Parame_Command_Init(typeCMParameters* cm_ptr) //функция инициализации структуры по командному сообщению, зануляет все
+{
+	Read_Parameters(cm_ptr);
+	CM_Parame_Full_Init(cm_ptr);
+	_cm_params_set_default(cm_ptr);
 }
 
 void CM_Parame_Operating_Time_Init(uint32_t op_time, typeCMParameters* cm_ptr) //функция, которая устанавливает наработку
@@ -310,7 +317,7 @@ int8_t Debug_Get_Packet (uint16_t* reg_addr, uint16_t* data, uint8_t* leng)
 int8_t F_Trans(uint8_t code, uint8_t dev_id, uint16_t start_addr, uint16_t cnt, uint16_t * data_arr) //функция, позволяющая отправлять стандартизованные ModBus запросы/ответы
 {
 	int8_t status = 0;
-    uint8_t i, flag = 1, out_leng = 0, time_out = 0;
+    uint8_t i, flag = 1, out_leng = 0, time_out = 0, time_bound = UART_TIMEOUT_MS;
     flag <<= (dev_id);
 	UART0_GetPacket(in_buff, &out_leng); //clear input fifo
 	// формирование запроса
@@ -347,27 +354,32 @@ int8_t F_Trans(uint8_t code, uint8_t dev_id, uint16_t start_addr, uint16_t cnt, 
 	}
 	//
     for (i = 0; i<3; i++) {
-		UART0_SendPacket(out_buff, out_leng, 1);
-		while (time_out <= UART_TIMEOUT_MS) {
+		UART0_SendPacket(out_buff, out_leng, 1);  //отправляем запрос
+		while (time_out <= time_bound) { //ждем начала приема
 			Timers_Start(1, 1); // запускаем таймер на 1 мс
 			while (Timers_Status(1) == 0) {};
 			time_out += 1;
+			if (UART0_PacketInWaitingOrReady()){
+				time_bound += 1;
+			}
+			else{
+				//
+			}
 			status = UART0_GetPacket(in_buff, &out_leng);
-			if (status == -1)
-			{
-					cm.bus_error_cnt += 1;
-					cm.bus_error_status |= flag;
-					i = 3;
-					break;
+			if (status == -1) {
+				cm.bus_error_cnt += 1;
+				cm.bus_error_status |= flag;
+				break;
 			}
-			else if (status == 0)
-			{
-					//
+			else if (status == 0) {
+				//
 			}
-			else if (status == 1)
-			{
-					i = 3;
-					break;
+			else if (status == 1) {
+				i = 3;
+				break;
+			}
+			else if (time_out >= 20){ //дополнительный таймаут на случай генерации в канале
+				break;
 			}
 		}
 		Timers_Start(1, 1); // дополнительный таймаут

@@ -60,8 +60,8 @@ int main() {
 	MPP_Init(&mpp27, _frame_definer(0, DEV_NUM, 0, MPP27_FRAME_NUM), MPP27_FRAME_NUM, MPP27_ID, MPP27_DEF_OFFSET);
 	MPP_Init(&mpp100, _frame_definer(0, DEV_NUM, 0, MPP100_FRAME_NUM), MPP100_FRAME_NUM, MPP100_ID, MPP100_DEF_OFFSET);
 	DIR_Init(&dir, _frame_definer(0, DEV_NUM, 0, DIR_FRAME_NUM), DIR_FRAME_NUM, DIR_ID);
-	DNT_Init(&dnt, _frame_definer(0, DEV_NUM, 0, DNT_FRAME_NUM), _frame_definer(0, DNT_DEV_NUM, 5, DNT_FRAME_NUM), DNT_FRAME_NUM, DNT_MKO_ADDR);
-	ADII_Init(&adii, _frame_definer(0, DEV_NUM, 0, ADII_FRAME_NUM), ADII_FRAME_NUM);
+	DNT_Init(&dnt, _frame_definer(0, DEV_NUM, 0, DNT_FRAME_NUM), _frame_definer(0, DNT_DEV_NUM, 5, DNT_FRAME_NUM), DNT_FRAME_NUM, DNT_MKO_ADDR, DIR_ID);
+	ADII_Init(&adii, _frame_definer(0, DEV_NUM, 0, ADII_FRAME_NUM), ADII_FRAME_NUM, DIR_ID);
 	// запускаем вотчдог
 	WDT_Init();	
 	// запускаем таймер для таймслотов
@@ -118,7 +118,7 @@ int main() {
 				cm.normal_mode_state = (1<<ADII_FRAME_NUM);
             }			
 			//***обработка тайм слотов
-			switch(meas_interv_count%10){
+			switch(meas_interv_count%10){  //используя переменную meas_interval организуем 10 таймслотов по 100мс
 				case 0:  // МПП: запрос 2х структур
 					if (cm.normal_mode_state & (0x1 << MPP27_FRAME_NUM)) MPP_struct_request(&mpp27);
 					if (cm.normal_mode_state & (0x1 << MPP100_FRAME_NUM)) MPP_struct_request(&mpp100);
@@ -145,7 +145,7 @@ int main() {
 					break;
 				case 4: // ДНТ: чтение результата запроса запуска измерения и отправка запроса на чтение результата
 					if (cm.normal_mode_state & (0x1 << DNT_FRAME_NUM)){
-						DNT_MKO_Measur_Finish(&dnt, &cm);
+						DNT_MKO_Measure_Finish(&dnt, &cm);
 						DNT_MKO_Read_Initiate(&dnt);
 					}
 					break;
@@ -181,6 +181,30 @@ int main() {
 					uint64_val = ((uint64_t)mko_dev.data[1] << 32) + ((uint64_t)mko_dev.data[2] << 16); // + ((uint64_t)mko_dev.data[3] << 0)) & 0xFFFFFFFFFFFF; часть для дробной синхронизации
 					Time_Set(uint64_val, &cm.diff_time_s, &cm.diff_time_low);
 					cm.sync_num += 1;
+                }
+				else if (mko_dev.data[0] == 0x0002) {  //  инициализация ЦМ
+					// перевключение питания
+					Pwr_Off_All_Devices();
+					// инициализируем память с привязкой к номеру ячейки
+					Format_Mem();
+					// последовательно включаем все питание
+					Pereph_On_and_Get_ID_Frame(2, &mpp27_init_inf);
+					Pereph_On_and_Get_ID_Frame(3, &mpp100_init_inf);
+					Pereph_On_and_Get_ID_Frame(4, &dir_init_inf);
+					Pwr_Perepherial_Devices_On(); //включаем ДНТ и АДИИ
+					//инициализация структур переферии
+					MPP_Init(&mpp27, _frame_definer(0, DEV_NUM, 0, MPP27_FRAME_NUM), MPP27_FRAME_NUM, MPP27_ID, MPP27_DEF_OFFSET);
+					MPP_Init(&mpp100, _frame_definer(0, DEV_NUM, 0, MPP100_FRAME_NUM), MPP100_FRAME_NUM, MPP100_ID, MPP100_DEF_OFFSET);
+					DIR_Init(&dir, _frame_definer(0, DEV_NUM, 0, DIR_FRAME_NUM), DIR_FRAME_NUM, DIR_ID);
+					DNT_Init(&dnt, _frame_definer(0, DEV_NUM, 0, DNT_FRAME_NUM), _frame_definer(0, DNT_DEV_NUM, 5, DNT_FRAME_NUM), DNT_FRAME_NUM, DNT_MKO_ADDR, DIR_ID);
+					ADII_Init(&adii, _frame_definer(0, DEV_NUM, 0, ADII_FRAME_NUM), ADII_FRAME_NUM, DIR_ID);
+					//инициализация памяти МПП
+					MPP_mem_init(&mpp27);
+					MPP_mem_init(&mpp100);
+					//обнуляем время
+					Time_Set(0, &cm.diff_time_s, &cm.diff_time_low);
+					//инициализация структуры управления
+					CM_Parame_Command_Init(&cm);
                 }
 			}    
         }

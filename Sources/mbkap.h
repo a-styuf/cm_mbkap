@@ -21,7 +21,7 @@
 #define CM_PARAM_SAVE_PERIOD_S   1
 #define DEFAULT_SYS_INTERVAL_S 9
 #define DEFAULT_MEAS_INTERVAL_S 10
-#define DEFAULT_ADII_INTERVAL_S 360
+#define DEFAULT_ADII_INTERVAL_S 20
 #define SLOT_TIME_MS 100
 // уровни срабатывания токовой защиты мА
 #define CM_BOUND 0 
@@ -33,9 +33,9 @@
 // уровни срабатывания токовой защиты мА
 #define MPP27_DEF_OFFSET 0
 #define MPP100_DEF_OFFSET 0
-//таймаут для определения неответа для внутренней шины
-#define UART_TIMEOUT_MS 10
-//номера кадров для МКО/МПИ
+// таймаут для определения неответа для внутренней шины
+#define UART_TIMEOUT_MS 6
+// номера кадров для МКО/МПИ
 // оперативные кадры
 #define SYS_FRAME_NUM 0x0F
 #define MPP27_FRAME_NUM 0x01
@@ -49,11 +49,11 @@
 #define arch_data 0x12
 #define tech_comm 0x1E
 #define time_comm 0x1D
-//id modules
+// id modules
 #define MPP27_ID 2 
 #define MPP100_ID 3
 #define DIR_ID 4
-//параметры переферийных устройств
+// параметры переферийных устройств
 #define DNT_MKO_ADDR 22
 #define DNT_DEV_NUM 2  // тип аппаратуры: мелкосерийный ДНТ (определяет Игорь Щепихин)
 #define DNT_MKO_ZAV_NUM 5
@@ -127,7 +127,7 @@ typedef struct  // структура с счетсиками состояний
 	uint8_t DIR_cnt; //массив с флагами для ДИР
 }typePerepherrialControlPollingstruct;
 
-typedef struct // параетры ЦМ для управления и сохранения в память !!! занимает два кадра!
+typedef struct // параетры ЦМ для управления и сохранения в память !!! занимает два кадра !!!
 {
     uint16_t label; //+0
     uint32_t time; //+2
@@ -143,15 +143,15 @@ typedef struct // параетры ЦМ для управления и сохр�
     uint8_t pwr_status; //+18 
     uint8_t pwr_state; //+19 
     int16_t diff_time_s; //+20
-    int8_t diff_time_low; //+24
-    uint8_t sync_num; //+25
-    uint32_t operating_time; //+26
-    uint16_t measure_interval;//+30
-	uint16_t sys_interval; //+32
-    uint16_t currents[7]; //+34       
-	uint8_t mko_error_cnt;//+48
-	uint8_t mko_error;//+49
-	uint16_t normal_mode_state; //+50 флаги запусков получния кадров: 0-1 - МПП1-2, 2 - ДНТ, 3 - ДИР, 4 - АДИИ
+    int8_t diff_time_low; //+22
+    uint8_t sync_num; //+23
+    uint32_t operating_time; //+24
+    uint16_t measure_interval;//+28
+	uint16_t sys_interval; //+30
+    uint16_t currents[7]; //+32       
+	uint8_t mko_error_cnt;//+46
+	uint8_t mko_error;//+47
+	uint16_t normal_mode_state; //+48 флаги запусков получния кадров: 0-1 - МПП1-2, 2 - ДНТ, 3 - ДИР, 4 - АДИИ
 	uint16_t speed_mode_state; //+50 состояния нахождения генерации типов кадров по режиму 1 ("0") или 2 ("1"): 0-1 - МПП1-2, 2 - ДИР, 3 - ДНТ, 4 - АДИИ
 	uint16_t speed_mode_timeout; //+52 таймаут на переход в ускоренный режим
 	uint16_t pwr_bounds[7];//+54 граница срабатывания токовой защиты периферии
@@ -185,13 +185,14 @@ typedef struct // структура со стартовой информаци�
 // функция для работы с памятью
 int8_t Save_Data_Frame(uint8_t* frame, typeCMParameters* cm_ptr);  // сохранение кадра с данными в архивную память
 int8_t Load_Data_Frame(typeCMParameters* cm_ptr);  // загрузка кадра с данными из памяти с выкладыванием на подадрес
-int8_t Write_Parameters(typeCMParameters* cm_ptr);   // загрузка параметров в структуру: параметры хранятся в начале и конце памяти
+int8_t Write_Parameters(typeCMParameters* cm_ptr);  // загрузка параметров в структуру: параметры хранятся в начале и конце памяти
 int8_t Read_Parameters(typeCMParameters* cm_ptr);  // сохранение параметров из структуры в память
 int8_t _read_cm_parameters_frame_with_crc16_check(uint16_t addr, uint8_t* frame); //чтение 128-байтового кадра с параметрами
 // функции для работы со структурой управления ЦМ typeCMParameters
-void CM_Parame_Full_Init(typeCMParameters* cm_ptr); //функция инициализации структуры, зануляет все кроме наработки
+void CM_Parame_Full_Init(typeCMParameters* cm_ptr);  // функция инициализации структуры, зануляет все кроме наработки
 void _cm_params_set_default(typeCMParameters* cm_ptr);
-void CM_Parame_Start_Init(typeCMParameters* cm_ptr); //функция инициализации структуры, зануляет все, что нет необходимости хранить
+void CM_Parame_Start_Init(typeCMParameters* cm_ptr);  // функция инициализации структуры, зануляет все, что нет необходимости хранить
+void CM_Parame_Command_Init(typeCMParameters* cm_ptr);  // функция инициализации структуры по командному сообщению, зануляет все
 void CM_Parame_Operating_Time_Init(uint32_t op_time, typeCMParameters* cm_ptr); //функция, которая устанавливает наработку
 void CM_Parameters_Write(typeCMParameters* parameters);
 int8_t CM_Parameters_Read(typeCMParameters* parameters);

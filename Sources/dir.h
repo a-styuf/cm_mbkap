@@ -153,14 +153,14 @@ typedef struct // структура с кадром данных АДИИ
     uint16_t crc16; //+62 31
 }typeADIIFrame;
 
-typedef struct // структура с кадром данных АДИИ
+typedef struct // структура с данными АДИИ для общения по ВШ
 {
     uint16_t Run;
 	uint16_t RxLeng;
 	uint8_t Data[64];
 }typeADIIData;
 
-typedef  struct // структура с управляющими переменными ДНТ
+typedef  struct // структура с управляющими переменными АДИИ
 {
 	uint16_t frame_definer; 	//определитель информационного кадра для ДНТ
 	uint8_t sub_addr; 		//субадрес для выкладывания данного кадра
@@ -188,17 +188,17 @@ void DIR_Frame_Build(typeDIRDevice *dir_ptr, typeCMParameters* cm_ptr);
 /* функции для внутреннего использования */
 void _dir_struct_rev(typeDIRData* dir_struct_ptr);
 //*** ДНТ
-void DNT_Init(typeDNTDevice *dnt_ptr, uint16_t frame_definer, uint16_t dev_frame_definer, uint8_t sub_addr, uint8_t mko_addr);
+void DNT_Init(typeDNTDevice *dnt_ptr, uint16_t frame_definer, uint16_t dev_frame_definer, uint8_t sub_addr, uint8_t mko_addr, uint8_t dir_id);
 void DNT_MKO_Read_Initiate(typeDNTDevice *dnt_ptr);
 void DNT_MKO_Read_Finish(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr);
 void DNT_MKO_Measure_Initiate(typeDNTDevice *dnt_ptr);
-void DNT_MKO_Measur_Finish(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr);
+void DNT_MKO_Measure_Finish(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr);
 /* формирование кадров */
 void DNT_Frame_Init(typeDNTDevice *dnt_ptr);
 void DNT_Frame_Build(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr);
 void DNT_Frame_Write_to_SA(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr);
 //*** АДИИ
-void ADII_Init(typeADIIDevice *adii_ptr, uint16_t frame_definer, uint8_t sub_addr);
+void ADII_Init(typeADIIDevice *adii_ptr, uint16_t frame_definer, uint8_t sub_addr, uint8_t dir_id);
 void ADII_Meas_Start(typeADIIDevice *adii_ptr);  //управление командой происходит переменной adii.ctrl.mode: 1 - режим тестирования, 0 - нормальный режим
 void ADII_Read_Data(typeADIIDevice *adii_ptr, typeCMParameters* cm_ptr);
 /* формирование кадров */
