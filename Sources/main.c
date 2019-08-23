@@ -206,6 +206,49 @@ int main() {
 					//инициализация структуры управления
 					CM_Parame_Command_Init(&cm);
                 }
+				else if (mko_dev.data[0] == 0x0003) {  //  установка измерительного интервала
+					if (mko_dev.data[1] == 0){  // измерительный интервал
+						cm.measure_interval = get_val_from_bound(mko_dev.data[2], 10, 3600);
+					}
+					else if (mko_dev.data[1] == 1){  // системный интервал
+						cm.sys_interval = get_val_from_bound(mko_dev.data[2], 10, 3600);
+					}
+					else if (mko_dev.data[1] == 0){  // интервал опроса АДИИ
+						cm.adii_interval = get_val_from_bound(mko_dev.data[2], 10, 3600);
+					}
+				}
+				else if (mko_dev.data[0] == 0x0004) {  // установка указателя чтения ЗУ
+					cm.read_ptr = get_val_from_bound( mko_dev.data[3], 0, Get_Max_Data_Frame_Num());
+				}
+				else if (mko_dev.data[0] == 0x0005) {  // переход в защищенную область
+					if (cm.defend_mem) Move_Read_Ptr_To_Defended_Mem(&cm);
+				}
+				else if (mko_dev.data[0] == 0x0006) {  // установка отсечки для МПП
+					if (mko_dev.data[1] == 1) MPP_Offset_Set(&mpp27, mko_dev.data[2]);
+					else if (mko_dev.data[1] == 2) MPP_Offset_Set(&mpp100, mko_dev.data[2]);
+				}
+				else if (mko_dev.data[0] == 0x0007) {  // управление АДИИ
+					if (mko_dev.data[1] == 0){
+							adii.ctrl.mode = 1;
+							// ADII_Meas_Start(&adii);  //возможно, лучше сразу запустить АДИИ, а не ждать следующего измерительного интервала - требуется проверка
+					}
+				}
+				else if (mko_dev.data[0] == 0x0008) {  // включение режима констант
+					MPP_constatnt_mode(mko_dev.data[1] & 0x01);  // широковещательная; mode: 1 - on; 0 - off
+					// надо сделать и для АДИИ и ДИР
+				}
+				else if (mko_dev.data[0] == 0x0009) {  // установка уровня токовой защиты
+					if (mko_dev.data[1] <= 6) cm.pwr_bounds[mko_dev.data[1]] = mko_dev.data[2];
+				}
+				else if (mko_dev.data[0] == 0x000A) {  // установка уровня токовой защиты
+					if (mko_dev.data[1] <= 6) {
+						if (mko_dev.data[2] & 0x01) cm.pwr_state |= (1<<mko_dev.data[1]);
+						else cm.pwr_state &= ~(1<<mko_dev.data[1]);
+					}
+				}
+				else if (mko_dev.data[0] == 0x000C) {  // управление порогом отключения МБКАП по МПП100
+					//
+				}
 			}    
         }
 		//***Отладочный порт //работает по команде 0х10 !!!

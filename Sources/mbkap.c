@@ -15,15 +15,43 @@ int8_t Save_Data_Frame(uint8_t* frame, typeCMParameters* cm_ptr)  // сохра�
 	uint16_t frame_addr;
 	uint16_t frame_max_num;
 	frame_max_num = Get_Max_Data_Frame_Num();
-	//
-	cm_ptr->write_ptr += 1;
-	if (cm_ptr->write_ptr >= frame_max_num) cm_ptr->write_ptr = 0;	
-	//
-	if (cm_ptr->write_ptr < (MEM1_FRAME_SIZE - 4)) frame_addr = cm_ptr->write_ptr + 2;
-	else if (cm_ptr->write_ptr >= (MEM1_FRAME_SIZE - 4)) frame_addr = cm_ptr->write_ptr + 6;
-	//
-	Write_Frame(frame_addr, (uint8_t*)frame);
+	// реализация защиты от перезаписи памяти области памяти
+	if (cm_ptr->write_ptr == _calc_defended_mem_addr(cm_ptr)){
+		cm_ptr->defend_mem = 1;
+	}
+	else{
+		cm_ptr->defend_mem = 0;
+		cm_ptr->write_ptr +=1;
+		//
+		if (cm_ptr->write_ptr >= frame_max_num) cm_ptr->write_ptr = 0;	
+		//
+		if (cm_ptr->write_ptr < (MEM1_FRAME_SIZE - 4)) frame_addr = cm_ptr->write_ptr + 2;
+		else if (cm_ptr->write_ptr >= (MEM1_FRAME_SIZE - 4)) frame_addr = cm_ptr->write_ptr + 6;
+		//
+		Write_Frame(frame_addr, (uint8_t*)frame);
+	}
 	return 0;
+}
+
+uint16_t _calc_defended_mem_addr(typeCMParameters* cm_ptr)
+{
+	int32_t new_ptr = 0;
+	new_ptr = cm_ptr->read_ptr - DEFEND_VOLUME;
+	if (new_ptr < 0)  new_ptr +=  Get_Max_Data_Frame_Num();
+	return (uint16_t)new_ptr;
+}
+
+void Move_Read_Ptr_To_Defended_Mem(typeCMParameters* cm_ptr)
+{
+	int32_t new_ptr = 0;
+	if (cm_ptr->defend_mem){
+		new_ptr = cm_ptr->read_ptr - DEFEND_VOLUME;
+		if (new_ptr < 0)  new_ptr +=  Get_Max_Data_Frame_Num();
+		cm_ptr->read_ptr =  (uint16_t)new_ptr;
+	}
+	else {
+		//
+	}
 }
 
 int8_t Load_Data_Frame(typeCMParameters* cm_ptr)  // загрузка кадра с данными из памяти с выкладыванием на подадрес
@@ -455,4 +483,10 @@ uint8_t uint16_to_log2_uint8_t(uint16_t var)
 	return ((exp & 0xF) << 4) + ((man_uint8 & 0xF) << 0);
 }
 
+uint16_t get_val_from_bound(uint16_t val, uint16_t min, uint16_t max) //если число внутри границ - используется оно, если нет, то ближайшая граница
+{
+	if (val > max) return max;
+	else if (val < min) return min;
+	return val;
+}
 

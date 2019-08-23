@@ -57,6 +57,8 @@
 #define DNT_MKO_ADDR 22
 #define DNT_DEV_NUM 2  // тип аппаратуры: мелкосерийный ДНТ (определяет Игорь Щепихин)
 #define DNT_MKO_ZAV_NUM 5
+// параметры защищенной области
+#define DEFEND_VOLUME 100 //в кадрах
 //
 #pragma pack(1)
 // ВАЖНО: последовательные однобайтовые параметры при копировании в кадр меняются местами
@@ -163,7 +165,9 @@ typedef struct // параетры ЦМ для управления и сохр�
 	uint8_t adii_fk; //+75
 	uint16_t adii_interval; //+76
 	//
-    uint8_t reserved[48];//+78
+	uint8_t defend_mem; //+78
+	//
+    uint8_t reserved[47];//+79
     uint16_t crc16; //+126
 }typeCMParameters;
 
@@ -184,6 +188,8 @@ typedef struct // структура со стартовой информаци�
 
 // функция для работы с памятью
 int8_t Save_Data_Frame(uint8_t* frame, typeCMParameters* cm_ptr);  // сохранение кадра с данными в архивную память
+uint16_t _calc_defended_mem_addr(typeCMParameters* cm_ptr);
+void Move_Read_Ptr_To_Defended_Mem(typeCMParameters* cm_ptr);
 int8_t Load_Data_Frame(typeCMParameters* cm_ptr);  // загрузка кадра с данными из памяти с выкладыванием на подадрес
 int8_t Write_Parameters(typeCMParameters* cm_ptr);  // загрузка параметров в структуру: параметры хранятся в начале и конце памяти
 int8_t Read_Parameters(typeCMParameters* cm_ptr);  // сохранение параметров из структуры в память
@@ -215,4 +221,5 @@ int8_t Pereph_On_and_Get_ID_Frame(uint8_t dev_num, typeDevStartInformation* dev_
 uint32_t _rev_u32 (volatile uint32_t val); //перестановка по 16-ти битным словам
 void _buff_rev16(uint16_t *buff, uint8_t leng_16);
 uint8_t uint16_to_log2_uint8_t(uint16_t var);
+uint16_t get_val_from_bound(uint16_t val, uint16_t min, uint16_t max); //если число внутри границ - используется оно, если нет, то ближайшая граница
 #endif
