@@ -28,6 +28,7 @@ void BlockMKOTransmitter(void);
 void Set_Busy(void);
 void Set_Release(void);
 void Write_to_SubAddr(uint8_t subaddr, uint16_t* data);
+void Read_from_SubAddr(uint8_t subaddr, uint16_t* data);
 uint16_t MKO_IVect(uint8_t* error, uint8_t* error_cnt);
 void Get_MKO_error(uint8_t* error, uint8_t* error_cnt);
 

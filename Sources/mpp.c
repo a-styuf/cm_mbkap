@@ -8,7 +8,7 @@ extern uint8_t in_buff[256];
 extern uint8_t out_buff[256];
 
 /*Инициализация устойства*/
-void MPP_Init(typeMPPDevice *mpp_ptr, uint16_t frame_definer, uint8_t sub_addr, uint8_t id, uint16_t offset)
+void MPP_Init(typeMPPDevice *mpp_ptr, uint16_t frame_definer, uint8_t sub_addr, uint8_t id, uint16_t offset, typeCMParameters* cm_ptr)
 {
 	// Инициализируем структуру урпавления
 	mpp_ptr->ctrl.frame_definer = frame_definer;
@@ -17,9 +17,9 @@ void MPP_Init(typeMPPDevice *mpp_ptr, uint16_t frame_definer, uint8_t sub_addr, 
 	// Иницилизация кадра
 	MPP_Frame_Init(mpp_ptr);
 	// Включение МПП
-	MPP_On(mpp_ptr);
+	MPP_On(mpp_ptr, cm_ptr);
 	// Установка отсечки
-	MPP_Offset_Set(mpp_ptr, offset);
+	MPP_Offset_Set(mpp_ptr, offset, cm_ptr);
 }
 
 /* Общение с МПП по ВШ */
@@ -56,69 +56,71 @@ void MPP_constatnt_mode(uint8_t mode)  // широковещательная; mo
     UART0_SendPacket(out_buff, 6, 1);
 }
 
-void MPP_On(typeMPPDevice *mpp_ptr)
+void MPP_On(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr)
 {
     uint16_t data[2];
     data[0] = (0x02 << 8); // 0x02 - команда на включение канала мпп на регистрацию
     data[1] = 0x0100; 
-	F_Trans(16, mpp_ptr->ctrl.id, 0, 2, data);
+	F_Trans(cm_ptr, 16, mpp_ptr->ctrl.id, 0, 2, data);
     Timers_Start(1, 10); 
     while (Timers_Status(1) == 0);
 }
 
-void MPP_Off(typeMPPDevice *mpp_ptr)
+void MPP_Off(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr)
 {
     uint16_t data[2];
     data[0] = (0x02 << 8); // 0x02 - команда на включение канала мпп на регистрацию
     data[1] = 0x0000; 
-	F_Trans(16, mpp_ptr->ctrl.id, 0, 2, data);
+	F_Trans(cm_ptr, 16, mpp_ptr->ctrl.id, 0, 2, data);
     Timers_Start(1, 10); 
     while (Timers_Status(1) == 0);
 }
 
-void MPP_Offset_Set(typeMPPDevice *mpp_ptr, uint16_t offset)
+void MPP_Offset_Set(typeMPPDevice *mpp_ptr, uint16_t offset, typeCMParameters* cm_ptr)
 {
 	uint16_t data[2];
 	data[0] = (0x01 << 8); // 0х01 - команда на установку уставки
 	data[1] = __REV16(offset & 0xFFFF);
-	F_Trans(16, mpp_ptr->ctrl.id, 0, 2, data);
+	F_Trans(cm_ptr, 16, mpp_ptr->ctrl.id, 0, 2, data);
 }
 
-void MPP_arch_count_offset_get(typeMPPDevice *mpp_ptr)
+void MPP_arch_count_offset_get(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr)
 {
 	uint8_t in_data[8];
-	F_Trans(3, mpp_ptr->ctrl.id, 119, 4, (uint16_t*)in_data);
+	F_Trans(cm_ptr, 3, mpp_ptr->ctrl.id, 119, 4, (uint16_t*)in_data);
 	mpp_ptr->frame.arch_count = (in_data[0] << 8) + in_data[1];
 	mpp_ptr->frame.offset = (in_data[4] << 8) + in_data[5];
 }
 
-void MPP_struct_request(typeMPPDevice *mpp_ptr)
+void MPP_struct_request(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr)
 {
     uint16_t data[8];
     data[0] = (0x04 << 8); // формируем регистр команд
     data[1] = 0x0100; // указываем количество помех - 1
-	F_Trans(16, mpp_ptr->ctrl.id, 0, 2, data);
+	F_Trans(cm_ptr, 16, mpp_ptr->ctrl.id, 0, 2, data);
 }
 
 void MPP_struct_get(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr)
 {
 	uint8_t i, in_data[64];
-	if (F_Trans(3, mpp_ptr->ctrl.id, 7, 26, (uint16_t*)in_data) == 1) { //вычитываем две структуры
+	uint8_t forced_start_flag = 1;
+	if (F_Trans(cm_ptr, 3, mpp_ptr->ctrl.id, 7, 26, (uint16_t*)in_data) == 1) { //вычитываем две структуры
 		for (i=0; i<2; i++){ 
 			if((mpp_ptr->frame.mpp_rec[i].AcqTime_s != 0) || (mpp_ptr->frame.mpp_rec[i].AcqTime_us != 0)){ // проверяем есть ли измерение в прочитанных данных
+				forced_start_flag = 0;
 				mpp_ptr->ctrl.frame_pulse_cnt += 1;
 				if (mpp_ptr->ctrl.frame_pulse_cnt >= 2){ //в кадре уже 2 помехи
 					mpp_ptr->ctrl.frame_pulse_cnt = 0;
 					MPP_Frame_Build(mpp_ptr, cm_ptr);  //выкладываем на подадрем и в ЗУ
 				}
 				else{  //кадр не полностью заполнен помехами
-					
 				}
 				memcpy(&mpp_ptr->frame.mpp_rec[mpp_ptr->ctrl.frame_pulse_cnt], in_data+2+26*i, sizeof(typeMPPRec));
 				_mpp_struct_rev(&mpp_ptr->frame.mpp_rec[mpp_ptr->ctrl.frame_pulse_cnt]);
 			} 
 		}
 	}
+	mpp_ptr->ctrl.forced_start_flag = forced_start_flag;
 }
 
 /* формирование кадров */
@@ -150,22 +152,26 @@ void MPP_Frame_Build(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr)
 	Save_Data_Frame((uint8_t*)frame, cm_ptr);
 }
 
-void MPP_mem_init(typeMPPDevice *mpp_ptr)
+void MPP_mem_init(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr)
 {
     uint16_t data[8];
     data[0] = (0x54 << 8); // формируем регистр команд
-	F_Trans(16, mpp_ptr->ctrl.id, 0, 1, data);
+	F_Trans(cm_ptr, 16, mpp_ptr->ctrl.id, 0, 1, data);
     Timers_Start(1, 200); 
     while (Timers_Status(1) == 0);
 }
 
-void MPP_forced_start(typeMPPDevice *mpp_ptr)
+void MPP_forced_start(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr) // происходит только в случае установки флага mpp_ptr->forced_start_flag
 {
     uint16_t data[8];
-    data[0] = (0x51 << 8); // формируем регистр команд
-    data[1] = 0x01 << 8; // формируем регистр команд
-	F_Trans(16, mpp_ptr->ctrl.id, 0, 2, data);
+	if (mpp_ptr->ctrl.forced_start_flag){
+		mpp_ptr->ctrl.forced_start_flag = 0;
+		data[0] = (0x51 << 8); // формируем регистр команд
+		data[1] = 0x01 << 8; // формируем регистр команд
+		F_Trans(cm_ptr, 16, mpp_ptr->ctrl.id, 0, 2, data);
+	}
 }
+
 /* функции для внутреннего использования */
 void _mpp_struct_rev(typeMPPRec* mpp_struct_ptr)
 {  

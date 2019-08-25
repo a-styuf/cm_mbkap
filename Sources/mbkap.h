@@ -30,9 +30,9 @@
 #define DIR_BOUND 0
 #define DNT_BOUND 0
 #define ADII_BOUND 0
-// уровни срабатывания токовой защиты мА
-#define MPP27_DEF_OFFSET 0
-#define MPP100_DEF_OFFSET 0
+// настройки МПП
+#define MPP27_DEF_OFFSET 0  // уровень срабатывания МПП27
+#define MPP100_DEF_OFFSET 0  // уровень срабатывания МПП100
 // таймаут для определения неответа для внутренней шины
 #define UART_TIMEOUT_MS 6
 // номера кадров для МКО/МПИ
@@ -44,11 +44,10 @@
 #define DNT_FRAME_NUM 0x04
 #define ADII_FRAME_NUM 0x05
 // остальные
-#define arch_frame 0x0E
-#define command 0x11
-#define arch_data 0x12
-#define tech_comm 0x1E
-#define time_comm 0x1D
+#define ARCH_FRAME_REQ_SA 0x12
+#define COMMAND_MESSAGE_SA 0x11
+#define ARCH_FRAME_DATA_SA 0x0E
+#define TECH_COMMAND_SA 0x1E
 // id modules
 #define MPP27_ID 2 
 #define MPP100_ID 3
@@ -113,15 +112,6 @@ typedef struct // ситстемный кадр
 }typeSysFrames;
 
 //структуры управления
-typedef struct  // структура состояния СТМ: если поля больше 0, то выставяем замкнуто, если меньше нуля - то разомкнуто
-{
-	// изменяемая часть от прибора к прибору
-    int8_t NKPBE;
-    int8_t AMKO;
-	// обязательная часть
-	int8_t block; //блокируется изменение СТМ
-}typeSTMstruct;
-
 typedef struct  // структура с счетсиками состояний для различных устройств - изначально инициализируем числом, затем числа уменьшаются до нуля: нуль - отдыхаем
 {
 	uint8_t MPP_cnt[2]; //массив с флагами для МПП1-6
@@ -166,8 +156,9 @@ typedef struct // параетры ЦМ для управления и сохр�
 	uint16_t adii_interval; //+76
 	//
 	uint8_t defend_mem; //+78
+	uint8_t debug; //+79
 	//
-    uint8_t reserved[47];//+79
+    uint8_t reserved[46];//+80
     uint16_t crc16; //+126
 }typeCMParameters;
 
@@ -210,11 +201,12 @@ void Sys_Frame_Build(typeSysFrames *sys_frame, typeCMParameters* cm_ptr);
 // работа с МКО
 uint8_t get_mko_addr(uint8_t def_addr);
 // управление питанием
-void  Pwr_current_process(typeCMParameters* cm);
+void  Pwr_current_process(typeCMParameters* cm_ptr);
 // отладочный интерфейс
 int8_t Debug_Get_Packet (uint16_t* reg_addr, uint16_t* data, uint8_t* leng);
 // ВШ
-int8_t F_Trans(uint8_t code, uint8_t dev_id, uint16_t start_addr, uint16_t cnt, uint16_t * data_arr); //функция, позволяющая отправлять стандартизованные ModBus запросы/ответы
+int8_t F_Trans(typeCMParameters* cm_ptr, uint8_t code, uint8_t dev_id, uint16_t start_addr, uint16_t cnt, uint16_t * data_arr); //функция, позволяющая отправлять стандартизованные ModBus запросы/ответы
+uint16_t Tech_SA_Transaction(uint16_t *data_arr); // функция для трансляции данных из МКО в ВШ
 //получение идентификационной строки для переферии
 int8_t Pereph_On_and_Get_ID_Frame(uint8_t dev_num, typeDevStartInformation* dev_init_inf_ptr); //включаем переферии и получаем от нее идентификационный пакет
 // Внутрениие рабочие функции

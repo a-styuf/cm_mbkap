@@ -10,6 +10,7 @@
 #include "1986ve8_lib/cm4ikmcu.h"
 #include "mko.h"
 #include "mbkap.h"
+#include "stm.h"
 
 
 uint16_t MKOIVect;
@@ -93,6 +94,15 @@ void Write_to_SubAddr(uint8_t subaddr, uint16_t* data)
         MIL_STD_15531->DATA[subaddr*32 + i] = (uint32_t)data[i];
     }
     Release_Busy();
+}
+
+void Read_from_SubAddr(uint8_t subaddr, uint16_t* data)
+{    
+    uint8_t i;
+    for (i=0; i<32; i++)
+    {
+        data[i] = MIL_STD_15531->DATA[subaddr*32 + i] & 0xFFFF;
+    }
 }
 
 void BlockMKOTransmitter(void)

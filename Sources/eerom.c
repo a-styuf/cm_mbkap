@@ -8,18 +8,18 @@ int8_t Write_Frame(uint16_t address, uint8_t* frame)
 	if (address < MAX_FRAME_SIZE){
 		if ((address >= 0) && (address < MEM1_FRAME_SIZE)){
 			memcpy((uint8_t*)(MEM1_OFFSET + address*64), frame, 64);
-			return 0;
+			return 1;
 		}
 		else if ((address >= MEM1_FRAME_SIZE) && (address < MEM1_FRAME_SIZE + MEM2_FRAME_SIZE)){
-			memcpy((uint8_t*)(MEM2_OFFSET + address*64), frame, 64);
-			return 0;
+			memcpy((uint8_t*)(MEM2_OFFSET + (address - MEM1_FRAME_SIZE)*64), frame, 64);
+			return 1;
 		}
 		else{
-			return -1; // если пытаемся вылезти за пределы двух памятей
+			return 0; // если пытаемся вылезти за пределы двух памятей
 		}	
 	}
 	else{
-		return -1; // если пытаемся вылезти за пределы отвыеденной памяти
+		return 0; // если пытаемся вылезти за пределы отвыеденной памяти
 	}
 }
 
@@ -28,18 +28,18 @@ int8_t Read_Frame(uint16_t address, uint8_t* frame)
 	if (address < MAX_FRAME_SIZE){
 		if ((address >= 0) && (address < MEM1_FRAME_SIZE)){
 			memcpy(frame, (uint8_t*)(MEM1_OFFSET + address*64), 64);
-			return 0;
+			return 1;
 		}
 		else if ((address >= MEM1_FRAME_SIZE) && (address < MEM1_FRAME_SIZE + MEM2_FRAME_SIZE)){
-			memcpy(frame, (uint8_t*)(MEM2_OFFSET + address*64), 64);
-			return 0;
+			memcpy(frame, (uint8_t*)(MEM2_OFFSET + (address - MEM1_FRAME_SIZE)*64), 64);
+			return 1;
 		}
 		else{
-			return -1; // если пытаемся вылезти за пределы двух памятей
+			return 0; // если пытаемся вылезти за пределы двух памятей
 		}	
 	}
 	else{
-		return -1; // если пытаемся вылезти за пределы отвыеденной памяти
+		return 0; // если пытаемся вылезти за пределы отвыеденной памяти
 	}
 }
 
@@ -56,8 +56,7 @@ int8_t Format_Mem(void) // функция инициализации памят�
 	for (i=0; i<MAX_FRAME_SIZE; i++)
 	{
 		WDRST;
-		block[0] = (i >> 8) & 0xFF;
-		block[1] = (i >> 0) & 0xFF;
+		*(uint16_t*)&block[0] = i;
 		Write_Frame(i, block);
 	}
 	return 0;
@@ -71,7 +70,7 @@ uint16_t Check_Mem(void)
 	for (i=0; i<64; i++) {
 		test_frame[i] = i & 0xFF;
 	}
-    for (i=0; i < MAX_FRAME_SIZE; i++)
+    for (i=1; i < MAX_FRAME_SIZE; i++)
     {
         WDRST;
 		//сохраняем данные из памяти и пишем тестовый блок во все 4 памяти

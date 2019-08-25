@@ -3,7 +3,6 @@
 // структуры для управления ЦМ
 typeCMParameters cm;
 typeSysFrames sys_frame;
-typeSTMstruct stm;
 
 //общие переменные
 uint8_t in_buff[256];
@@ -69,7 +68,7 @@ int8_t Load_Data_Frame(typeCMParameters* cm_ptr)  // загрузка кадра
 	//
 	Read_Frame(frame_addr, (uint8_t*)frame);
 	//
-	Write_to_SubAddr(arch_frame, frame);
+	Write_to_SubAddr(ARCH_FRAME_DATA_SA, frame);
 	return 0;
 }
 
@@ -79,7 +78,7 @@ int8_t Write_Parameters(typeCMParameters* cm_ptr)   // загрузка пара
 	uint16_t param_addr_array[4] = {0, MEM1_FRAME_SIZE-2, MEM1_FRAME_SIZE, MEM1_FRAME_SIZE+MEM2_FRAME_SIZE-2};
 	cm_ptr->crc16 = crc16_ccitt((uint8_t*)cm_ptr, 126);
 	for(i=0; i<4; i++){
-		if ((Write_Frame(param_addr_array[i], (uint8_t*)cm_ptr) < 0) || (Write_Frame(param_addr_array[i]+1, (uint8_t*)cm_ptr+64) < 0) ) state = i;
+		if ((Write_Frame(param_addr_array[i], (uint8_t*)cm_ptr) == 0) || (Write_Frame(param_addr_array[i]+1, (uint8_t*)cm_ptr+64) == 0) ) state = i;
 	}
 	return state;
 }
@@ -138,7 +137,7 @@ void _cm_params_set_default(typeCMParameters* cm_ptr)
 	cm_ptr->sync_time_low = 0;
 	cm_ptr->adii_mode = 0;
 	cm_ptr->adii_fk = 0xFF;
-	
+	cm_ptr->debug = 0x00;
 	//
 	cm_ptr->pwr_bounds[0] = 0; //МБКАП - не проверяем по току
 	cm_ptr->pwr_bounds[1] = CM_BOUND;
@@ -281,20 +280,20 @@ uint8_t get_mko_addr(uint8_t def_addr)
 }
 
 // управление питанием
-void  Pwr_current_process(typeCMParameters* cm)
+void  Pwr_current_process(typeCMParameters* cm_ptr)
 {
 	uint8_t i, status_1 = 0, status_2 = 0;
-	status_1 = Get_Modules_Current(cm->currents, cm->pwr_bounds); //токи [МБКАП, ЦМ, МПП100, МПП27, ДИР, ДНТ, АДИИ]
-	if (status_1 & 0x3F) status_2 = Get_Modules_Current(cm->currents, cm->pwr_bounds); //в случае обнаружения превышения на всякий прочитаем еще раз, что бы исключаить разовый выброс от ВЧ-помехи
-	cm->pwr_status |= (status_1 & status_2);
+	status_1 = Get_Modules_Current(cm_ptr->currents, cm_ptr->pwr_bounds); //токи [МБКАП, ЦМ, МПП100, МПП27, ДИР, ДНТ, АДИИ]
+	if (status_1 & 0x3F) status_2 = Get_Modules_Current(cm_ptr->currents, cm_ptr->pwr_bounds); //в случае обнаружения превышения на всякий прочитаем еще раз, что бы исключаить разовый выброс от ВЧ-помехи
+	cm_ptr->pwr_status |= (status_1 & status_2);
 	if ((status_1 & status_2)  != 0){
 		for (i=0; i<7; i++) { //отключаем таким способом все блоки кроме МБКАП и ЦМ
 			if (((status_1 & status_2) & (1 << i)) != 0) {
-				cm->pwr_state &= ~(0x01 << i); //если два раза измерения токов показали превышения для отдельного модуля, то подготовливаем state для его отключения
+				cm_ptr->pwr_state &= ~(0x01 << i); //если два раза измерения токов показали превышения для отдельного модуля, то подготовливаем state для его отключения
 			} 
 		}
 	}
-	Pwr_Ctrl_by_State(cm->pwr_state); //pwr_state: 0-CM, 1-MPP27, 2-MPP100, 3-DIR, 4-DNT, 5-ADII  6-7-NU
+	Pwr_Ctrl_by_State(cm_ptr->pwr_state); //pwr_state: 0-CM, 1-MPP27, 2-MPP100, 3-DIR, 4-DNT, 5-ADII  6-7-NU
 }
 
 //отладочный интерфейс
@@ -342,47 +341,111 @@ int8_t Debug_Get_Packet (uint16_t* reg_addr, uint16_t* data, uint8_t* leng)
 }
 
 // ВШ
-int8_t F_Trans(uint8_t code, uint8_t dev_id, uint16_t start_addr, uint16_t cnt, uint16_t * data_arr) //функция, позволяющая отправлять стандартизованные ModBus запросы/ответы
+int8_t F_Trans(typeCMParameters* cm_ptr, uint8_t code, uint8_t dev_id, uint16_t start_addr, uint16_t cnt, uint16_t * data_arr) //функция, позволяющая отправлять стандартизованные ModBus запросы/ответы
 {
 	int8_t status = 0;
-    uint8_t i, flag = 1, out_leng = 0, time_out = 0, time_bound = UART_TIMEOUT_MS;
-    flag <<= (dev_id);
-	UART0_GetPacket(in_buff, &out_leng); //clear input fifo
-	// формирование запроса
-	switch(code){
-		case 3:
-			out_buff[0] = dev_id;
-			out_buff[1] = 0x03;
-			out_buff[2] = start_addr >> 8;
-			out_buff[3] = start_addr & 0xFF;
-			out_buff[4] = cnt >> 8;
-			out_buff[5] = cnt & 0xFF;
-			out_leng = 6;
-			break;
-		case 6:
-			out_buff[0] = dev_id;
-			out_buff[1] = 0x06;
-			out_buff[2] = start_addr >> 8;
-			out_buff[3] = start_addr & 0xFF;
-			out_buff[4] = data_arr[0] >> 8;
-			out_buff[5] = data_arr[0] & 0xFF;
-			out_leng = 6;
-			break;
-		case 16:
-		    out_buff[0] = dev_id;
-			out_buff[1] = 0x10;
-			out_buff[2] = start_addr >> 8;
-			out_buff[3] = start_addr & 0xFF;
-			out_buff[4] = 0x00;
-			out_buff[5] = cnt;
-			out_buff[6] = cnt*2;
-			memcpy(&out_buff[7], (uint8_t*)data_arr, cnt*2);    
-			out_leng = cnt*2+7;
-			break;
+    uint8_t i, flag = 1, out_leng = 0, in_leng = 0, time_out = 0, time_bound = UART_TIMEOUT_MS;
+	if (cm_ptr->debug){
+		return 0;
+	}
+	else{
+		flag <<= (dev_id);
+		UART0_GetPacket(in_buff, &out_leng); //clear input fifo
+		// формирование запроса
+		switch(code){
+			case 3:
+				out_buff[0] = dev_id;
+				out_buff[1] = 0x03;
+				out_buff[2] = start_addr >> 8;
+				out_buff[3] = start_addr & 0xFF;
+				out_buff[4] = cnt >> 8;
+				out_buff[5] = cnt & 0xFF;
+				out_leng = 6;
+				break;
+			case 6:
+				out_buff[0] = dev_id;
+				out_buff[1] = 0x06;
+				out_buff[2] = start_addr >> 8;
+				out_buff[3] = start_addr & 0xFF;
+				out_buff[4] = data_arr[0] >> 8;
+				out_buff[5] = data_arr[0] & 0xFF;
+				out_leng = 6;
+				break;
+			case 16:
+				out_buff[0] = dev_id;
+				out_buff[1] = 0x10;
+				out_buff[2] = start_addr >> 8;
+				out_buff[3] = start_addr & 0xFF;
+				out_buff[4] = 0x00;
+				out_buff[5] = cnt;
+				out_buff[6] = cnt*2;
+				memcpy(&out_buff[7], (uint8_t*)data_arr, cnt*2);    
+				out_leng = cnt*2+7;
+				break;
+		}
+		//
+		for (i = 0; i<3; i++) {
+			UART0_SendPacket(out_buff, out_leng, 1);  //отправляем запрос
+			while (time_out <= time_bound) { //ждем начала приема
+				Timers_Start(1, 1); // запускаем таймер на 1 мс
+				while (Timers_Status(1) == 0) {};
+				time_out += 1;
+				if (UART0_PacketInWaitingOrReady()){
+					time_bound += 1;
+				}
+				else{
+					//
+				}
+				status = UART0_GetPacket(in_buff, &in_leng);
+				if (status == -1) {
+					cm_ptr->bus_error_cnt += 1;
+					cm_ptr->bus_error_status |= flag;
+					break;
+				}
+				else if (status == 0) {
+					//
+				}
+				else if (status == 1) {
+					i = 3;
+					break;
+				}
+				else if (time_out >= 20){ //дополнительный таймаут на случай генерации в канале
+					break;
+				}
+			}
+			Timers_Start(1, 1); // дополнительный таймаут
+			while (Timers_Status(1) == 0) {};
+			Timers_Stop(1);
+		}
+		if (status == 0) {
+			cm_ptr->bus_nans_cnt += 1;
+			cm_ptr->bus_nans_status |= flag; // todo: сопоставить флаги с модулями
+		}
+		else { //
+			if (code == 3){
+				memcpy((uint8_t*)data_arr, &in_buff[6], in_buff[2]);
+			}
+		}
+		return status;
+	}
+}
+
+uint16_t Tech_SA_Transaction(uint16_t *data_arr) // функция для трансляции данных из МКО в ВШ
+{
+	int8_t status = 0;
+	uint16_t  return_val = 0;
+    uint8_t i, out_leng = 0, in_leng = 0, time_out = 0, time_bound = UART_TIMEOUT_MS;
+	//
+	UART0_GetPacket(out_buff, &in_leng); //clear input fifo
+	//определяем кол-во данных для записи
+	out_leng = data_arr[1] & 0x1F;
+	for(i=0; i<30; i++){
+		out_buff[2*i] = (data_arr[i+2] >> 8) & 0xFF;
+		out_buff[2*i+1] = (data_arr[i+2] >> 0) & 0xFF;
 	}
 	//
     for (i = 0; i<3; i++) {
-		UART0_SendPacket(out_buff, out_leng, 1);  //отправляем запрос
+		UART0_SendPacket(out_buff, out_leng, 0);  //отправляем запрос
 		while (time_out <= time_bound) { //ждем начала приема
 			Timers_Start(1, 1); // запускаем таймер на 1 мс
 			while (Timers_Status(1) == 0) {};
@@ -393,10 +456,9 @@ int8_t F_Trans(uint8_t code, uint8_t dev_id, uint16_t start_addr, uint16_t cnt, 
 			else{
 				//
 			}
-			status = UART0_GetPacket(in_buff, &out_leng);
+			status = UART0_GetPacket(in_buff, &in_leng);
 			if (status == -1) {
-				cm.bus_error_cnt += 1;
-				cm.bus_error_status |= flag;
+				return_val = 2;
 				break;
 			}
 			else if (status == 0) {
@@ -415,15 +477,13 @@ int8_t F_Trans(uint8_t code, uint8_t dev_id, uint16_t start_addr, uint16_t cnt, 
         Timers_Stop(1);
 	}
 	if (status == 0) {
-		cm.bus_nans_cnt += 1;
-		cm.bus_nans_status |= flag; // todo: сопоставить флаги с модулями
+		return_val = 1;
 	}
-	else { //
-		if (code == 3){
-			memcpy((uint8_t*)data_arr, &in_buff[6], in_buff[2]);
-		}
+	data_arr[1] = (return_val << 8) | in_leng;
+	for(i=0; i<30; i++){
+		data_arr[i+2] = (in_buff[2*i] << 8) + in_buff[2*i+1];
 	}
-	return status;
+	return return_val;
 }
 
 //получение идентификационной строки для переферии

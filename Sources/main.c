@@ -37,13 +37,16 @@ uint8_t Buff[256];
 extern uint16_t ADCData[];
 uint8_t leng, dbg_status;
 uint16_t reg_addr, dbg_data[32];
+uint16_t uint8_val;
+uint16_t uint16_val, uint16_arr[32];
 uint64_t uint64_val;
+
 
 int main() {
 	uint16_t cm_param_count = 0, sys_frame_count = 0, meas_interv_count = 0, adii_interv_count = 0; //счетчики для отслеживанияинтервалов
 	// инициализация переферии
 	System_Init();
-	MKO_Init(get_mko_addr(MKO_ID)); //установить 0 для работы только от адреса, задаваемого соединителем
+	MKO_Init(get_mko_addr(MKO_ID)); // установить 0 для работы только от адреса, задаваемого соединителем
 	ADC_Init();
 	UART0_Init();
 	Timers_Init();
@@ -57,11 +60,11 @@ int main() {
 	Pereph_On_and_Get_ID_Frame(4, &dir_init_inf);
 	Pwr_Perepherial_Devices_On(); //включаем ДНТ и АДИИ
 	// запускаем работу периферии
-	MPP_Init(&mpp27, _frame_definer(0, DEV_NUM, 0, MPP27_FRAME_NUM), MPP27_FRAME_NUM, MPP27_ID, MPP27_DEF_OFFSET);
-	MPP_Init(&mpp100, _frame_definer(0, DEV_NUM, 0, MPP100_FRAME_NUM), MPP100_FRAME_NUM, MPP100_ID, MPP100_DEF_OFFSET);
-	DIR_Init(&dir, _frame_definer(0, DEV_NUM, 0, DIR_FRAME_NUM), DIR_FRAME_NUM, DIR_ID);
-	DNT_Init(&dnt, _frame_definer(0, DEV_NUM, 0, DNT_FRAME_NUM), _frame_definer(0, DNT_DEV_NUM, 5, DNT_FRAME_NUM), DNT_FRAME_NUM, DNT_MKO_ADDR, DIR_ID);
-	ADII_Init(&adii, _frame_definer(0, DEV_NUM, 0, ADII_FRAME_NUM), ADII_FRAME_NUM, DIR_ID);
+	MPP_Init(&mpp27, _frame_definer(0, DEV_NUM, 0, MPP27_FRAME_NUM), MPP27_FRAME_NUM, MPP27_ID, MPP27_DEF_OFFSET, &cm);
+	MPP_Init(&mpp100, _frame_definer(0, DEV_NUM, 0, MPP100_FRAME_NUM), MPP100_FRAME_NUM, MPP100_ID, MPP100_DEF_OFFSET, &cm);
+	DIR_Init(&dir, _frame_definer(0, DEV_NUM, 0, DIR_FRAME_NUM), DIR_FRAME_NUM, DIR_ID, &cm);
+	DNT_Init(&dnt, _frame_definer(0, DEV_NUM, 0, DNT_FRAME_NUM), _frame_definer(0, DNT_DEV_NUM, 5, DNT_FRAME_NUM), DNT_FRAME_NUM, DNT_MKO_ADDR, DIR_ID, &cm);
+	ADII_Init(&adii, _frame_definer(0, DEV_NUM, 0, ADII_FRAME_NUM), ADII_FRAME_NUM, DIR_ID, &cm);
 	// запускаем вотчдог
 	WDT_Init();	
 	// запускаем таймер для таймслотов
@@ -120,12 +123,12 @@ int main() {
 			//***обработка тайм слотов
 			switch(meas_interv_count%10){  //используя переменную meas_interval организуем 10 таймслотов по 100мс
 				case 0:  // МПП: запрос 2х структур
-					if (cm.normal_mode_state & (0x1 << MPP27_FRAME_NUM)) MPP_struct_request(&mpp27);
-					if (cm.normal_mode_state & (0x1 << MPP100_FRAME_NUM)) MPP_struct_request(&mpp100);
+					if (cm.normal_mode_state & (0x1 << MPP27_FRAME_NUM)) MPP_struct_request(&mpp27, &cm);
+					if (cm.normal_mode_state & (0x1 << MPP100_FRAME_NUM)) MPP_struct_request(&mpp100, &cm);
 					break;
 				case 1:  // запрос количества помех в архиве и границы срабатывания
-					if (cm.normal_mode_state & (0x1 << MPP27_FRAME_NUM)) MPP_arch_count_offset_get(&mpp27);
-					if (cm.normal_mode_state & (0x1 << MPP100_FRAME_NUM)) MPP_arch_count_offset_get(&mpp100);
+					if (cm.normal_mode_state & (0x1 << MPP27_FRAME_NUM)) MPP_arch_count_offset_get(&mpp27, &cm);
+					if (cm.normal_mode_state & (0x1 << MPP100_FRAME_NUM)) MPP_arch_count_offset_get(&mpp100, &cm);
 					break;
 				case 2: // МПП: забор 2х структур 
 					if (cm.normal_mode_state & (0x1 << MPP27_FRAME_NUM)) {
@@ -136,36 +139,38 @@ int main() {
 					}
 					cm.normal_mode_state &= ~((1<<MPP27_FRAME_NUM)|(1<<MPP100_FRAME_NUM));
 					break;
-				case 3:  // ДИР: чтение резуьтата и запуск измерения
+				case 3: // МПП: принудительный запуск при необходимости
+					MPP_forced_start(&mpp27, &cm);
+					MPP_forced_start(&mpp100, &cm);
+					break;
+				case 4:  // ДИР: чтение резуьтата и запуск измерения
 					if (cm.normal_mode_state & (0x1 << DIR_FRAME_NUM)) {
 						DIR_Data_Get(&dir, &cm);
-						DIR_Start_Measurement(&dir);
+						DIR_Start_Measurement(&dir, &cm);
 						cm.normal_mode_state &= ~(1<<DIR_FRAME_NUM);
 					}
 					break;
-				case 4: // ДНТ: чтение результата запроса запуска измерения и отправка запроса на чтение результата
+				case 5: // ДНТ: чтение результата запроса запуска измерения и отправка запроса на чтение результата
 					if (cm.normal_mode_state & (0x1 << DNT_FRAME_NUM)){
 						DNT_MKO_Measure_Finish(&dnt, &cm);
-						DNT_MKO_Read_Initiate(&dnt);
+						DNT_MKO_Read_Initiate(&dnt, &cm);
 					}
 					break;
-				case 5: // ДНТ: чтение результата запроса чтения результатов и отправка запроса на запуск измерения
+				case 6: // ДНТ: чтение результата запроса чтения результатов и отправка запроса на запуск измерения
 					if (cm.normal_mode_state & (0x1 << DNT_FRAME_NUM)){
 						DNT_MKO_Read_Finish(&dnt, &cm);
-						DNT_MKO_Measure_Initiate(&dnt);
+						DNT_MKO_Measure_Initiate(&dnt, &cm);
 						//
 						cm.normal_mode_state &= ~(1<<DNT_FRAME_NUM);
 					}
 					break;
-				case 6: // АДИИ: 
+				case 7: // АДИИ: 
 					if (cm.normal_mode_state & (0x1 << ADII_FRAME_NUM)){
 						ADII_Read_Data(&adii, &cm);
-						ADII_Meas_Start(&adii);  //управление командой происходит переменной adii.ctrl.mode: 1 - режим тестирования, 0 - нормальный режим
+						ADII_Meas_Start(&adii, &cm);  //управление командой происходит переменной adii.ctrl.mode: 1 - режим тестирования, 0 - нормальный режим
 						//
 						cm.normal_mode_state &= ~(1<<ADII_FRAME_NUM);
 					}
-					break;
-				case 7:
 					break;
 				case 8:
 					break;
@@ -175,7 +180,7 @@ int main() {
 		}
 		//***Прием команд по МКО
         if (MKO_IVect(&cm.mko_error, &cm.mko_error_cnt) != 0x0000){
-			if (mko_dev.subaddr == 0x11) {  //обработка командных сообщений
+			if (mko_dev.subaddr == COMMAND_MESSAGE_SA) {  //обработка командных сообщений
                 if (mko_dev.data[0] == 0x0001) {  //  синхронизация времени
 					Get_Time_sec_parts(&cm.sync_time_s, &cm.sync_time_low);
 					uint64_val = ((uint64_t)mko_dev.data[1] << 32) + ((uint64_t)mko_dev.data[2] << 16); // + ((uint64_t)mko_dev.data[3] << 0)) & 0xFFFFFFFFFFFF; часть для дробной синхронизации
@@ -193,14 +198,14 @@ int main() {
 					Pereph_On_and_Get_ID_Frame(4, &dir_init_inf);
 					Pwr_Perepherial_Devices_On(); //включаем ДНТ и АДИИ
 					//инициализация структур переферии
-					MPP_Init(&mpp27, _frame_definer(0, DEV_NUM, 0, MPP27_FRAME_NUM), MPP27_FRAME_NUM, MPP27_ID, MPP27_DEF_OFFSET);
-					MPP_Init(&mpp100, _frame_definer(0, DEV_NUM, 0, MPP100_FRAME_NUM), MPP100_FRAME_NUM, MPP100_ID, MPP100_DEF_OFFSET);
-					DIR_Init(&dir, _frame_definer(0, DEV_NUM, 0, DIR_FRAME_NUM), DIR_FRAME_NUM, DIR_ID);
-					DNT_Init(&dnt, _frame_definer(0, DEV_NUM, 0, DNT_FRAME_NUM), _frame_definer(0, DNT_DEV_NUM, 5, DNT_FRAME_NUM), DNT_FRAME_NUM, DNT_MKO_ADDR, DIR_ID);
-					ADII_Init(&adii, _frame_definer(0, DEV_NUM, 0, ADII_FRAME_NUM), ADII_FRAME_NUM, DIR_ID);
+					MPP_Init(&mpp27, _frame_definer(0, DEV_NUM, 0, MPP27_FRAME_NUM), MPP27_FRAME_NUM, MPP27_ID, MPP27_DEF_OFFSET, &cm);
+					MPP_Init(&mpp100, _frame_definer(0, DEV_NUM, 0, MPP100_FRAME_NUM), MPP100_FRAME_NUM, MPP100_ID, MPP100_DEF_OFFSET, &cm);
+					DIR_Init(&dir, _frame_definer(0, DEV_NUM, 0, DIR_FRAME_NUM), DIR_FRAME_NUM, DIR_ID, &cm);
+					DNT_Init(&dnt, _frame_definer(0, DEV_NUM, 0, DNT_FRAME_NUM), _frame_definer(0, DNT_DEV_NUM, 5, DNT_FRAME_NUM), DNT_FRAME_NUM, DNT_MKO_ADDR, DIR_ID, &cm);
+					ADII_Init(&adii, _frame_definer(0, DEV_NUM, 0, ADII_FRAME_NUM), ADII_FRAME_NUM, DIR_ID, &cm);
 					//инициализация памяти МПП
-					MPP_mem_init(&mpp27);
-					MPP_mem_init(&mpp100);
+					MPP_mem_init(&mpp27, &cm);
+					MPP_mem_init(&mpp100, &cm);
 					//обнуляем время
 					Time_Set(0, &cm.diff_time_s, &cm.diff_time_low);
 					//инициализация структуры управления
@@ -224,8 +229,8 @@ int main() {
 					if (cm.defend_mem) Move_Read_Ptr_To_Defended_Mem(&cm);
 				}
 				else if (mko_dev.data[0] == 0x0006) {  // установка отсечки для МПП
-					if (mko_dev.data[1] == 1) MPP_Offset_Set(&mpp27, mko_dev.data[2]);
-					else if (mko_dev.data[1] == 2) MPP_Offset_Set(&mpp100, mko_dev.data[2]);
+					if (mko_dev.data[1] == 1) MPP_Offset_Set(&mpp27, mko_dev.data[2], &cm);
+					else if (mko_dev.data[1] == 2) MPP_Offset_Set(&mpp100, mko_dev.data[2], &cm);
 				}
 				else if (mko_dev.data[0] == 0x0007) {  // управление АДИИ
 					if (mko_dev.data[1] == 0){
@@ -250,12 +255,39 @@ int main() {
 					//
 				}
 			}    
+			else if(mko_dev.subaddr == ARCH_FRAME_REQ_SA){  // обновление кадра на ПА из ЗУ ЦМ
+				Load_Data_Frame(&cm);
+			}
+			else if(mko_dev.subaddr == TECH_COMMAND_SA){  // технологический ПА
+				// копируем содержимое, но меняем в первом слове 8й бит на 1
+				Read_from_SubAddr(mko_dev.subaddr, dbg_data);
+				dbg_data[0]  |= 0x0100;
+				// разбираем команды
+				if  (mko_dev.data[0] == 0x0001) { // зеркало для проверки связи
+				}
+				else if(mko_dev.data[0] == 0x0002){  // чтение произвольного блока памяти ЗУ ЦМ (в том числеи и с параметрами ЦМ) с выкладыванием на 14-й подадрес
+					uint16_val = mko_dev.data[1]; //адрес
+					dbg_data[2] = Read_Frame(uint16_val,  (uint8_t*)uint16_arr); 
+					Write_to_SubAddr(ARCH_FRAME_DATA_SA, uint16_arr);
+				}
+				else if(mko_dev.data[0] == 0x0003){  // неразрушающая проверка памяти
+					dbg_data[1] = Check_Mem(); 
+				}
+				else if(mko_dev.data[0] == 0x0004){  // отправка команды по ВШ
+					Tech_SA_Transaction((uint16_t*)&dbg_data[0]);
+				}
+				else if(mko_dev.data[0] == 0x0005){  // установка СТМ на 20 секунд
+					Set_STM_from_uint16_val(&stm, &cm, mko_dev.data[1], 20);
+				}
+				// todo: доделать тех подадрес
+				Write_to_SubAddr(TECH_COMMAND_SA, dbg_data);
+			}
         }
 		//***Отладочный порт //работает по команде 0х10 !!!
         if(Debug_Get_Packet(&reg_addr, dbg_data, &leng) == 0x01) 
         {
             if((reg_addr == 0x00) & (leng >= 2)){  // проверка адресации
-				dbg_status = ((dbg_data[1] >> 8) & 0x01) ^ 0x01;
+				cm.debug = ((dbg_data[1] >> 8) & 0x01) ^ 0x01;
 			}
 			else if ((reg_addr == 0x01) & (leng >= 2)) {
 				GPIO_Pwr((dbg_data[0] >> 8), (dbg_data[1] >> 8) & 0x01);
