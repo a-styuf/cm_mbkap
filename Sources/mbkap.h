@@ -23,13 +23,14 @@
 #define DEFAULT_MEAS_INTERVAL_S 10
 #define DEFAULT_ADII_INTERVAL_S 20
 #define SLOT_TIME_MS 100
-// уровни срабатывания токовой защиты мА
-#define CM_BOUND 0 
-#define MPP27_BOUND 0
-#define MPP100_BOUND 0
-#define DIR_BOUND 0
-#define DNT_BOUND 0
-#define ADII_BOUND 0
+// уровни срабатывания токовой защиты мА - трехкратное превышение нормального потребления
+#define MBKAP_BOUND 3*350
+#define CM_BOUND 3*55
+#define MPP27_BOUND 3*36
+#define MPP100_BOUND 3*36
+#define DIR_BOUND 3*50
+#define DNT_BOUND 3*31
+#define ADII_BOUND 3*125
 // настройки МПП
 #define MPP27_DEF_OFFSET 0  // уровень срабатывания МПП27
 #define MPP100_DEF_OFFSET 0  // уровень срабатывания МПП100
@@ -177,6 +178,8 @@ typedef struct // структура со стартовой информаци�
 	typeDevInformationField inf_field_arr[8];
 }typeDevStartInformation;
 
+// обработка информации о потреблении токов
+uint8_t  Pwr_current_process(typeCMParameters* cm_ptr);
 // функция для работы с памятью
 int8_t Save_Data_Frame(uint8_t* frame, typeCMParameters* cm_ptr);  // сохранение кадра с данными в архивную память
 uint16_t _calc_defended_mem_addr(typeCMParameters* cm_ptr);
@@ -200,8 +203,6 @@ void Sys_Frame_Init(typeSysFrames *sys_frame); //инициализируютс�
 void Sys_Frame_Build(typeSysFrames *sys_frame, typeCMParameters* cm_ptr);
 // работа с МКО
 uint8_t get_mko_addr(uint8_t def_addr);
-// управление питанием
-void  Pwr_current_process(typeCMParameters* cm_ptr);
 // отладочный интерфейс
 int8_t Debug_Get_Packet (uint16_t* reg_addr, uint16_t* data, uint8_t* leng);
 // ВШ

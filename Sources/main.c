@@ -37,7 +37,7 @@ uint8_t Buff[256];
 extern uint16_t ADCData[];
 uint8_t leng, dbg_status;
 uint16_t reg_addr, dbg_data[32];
-uint16_t uint8_val;
+uint8_t uint8_val;
 uint16_t uint16_val, uint16_arr[32];
 uint64_t uint64_val;
 
@@ -54,7 +54,7 @@ int main() {
 	// инициализация структур управления ЦМ
 	CM_Parame_Start_Init(&cm);
 	Sys_Frame_Init(&sys_frame);
-	//включение питания периферии
+	//включение питания всей периферии  !!!важно - следить за тем, что бы модули включались не противореча параметру cm.pwr_state !!!todo: будет время - переделать на параметризованное включение
 	Pereph_On_and_Get_ID_Frame(2, &mpp27_init_inf);
 	Pereph_On_and_Get_ID_Frame(3, &mpp100_init_inf);
 	Pereph_On_and_Get_ID_Frame(4, &dir_init_inf);
@@ -83,7 +83,6 @@ int main() {
 				cm_param_count = 0;
 				// работа с потреблением
 				Pwr_current_process(&cm);
-				Pwr_Ctrl_by_State(cm.pwr_state);
 				//работа со временем ЦМ
                 cm.operating_time += CM_PARAM_SAVE_PERIOD_S; //todo: возможная проблема - расхождения времени и времени наработки из-за пропусков секундных интервалов
                 cm.time = Get_Time_s();
@@ -185,6 +184,7 @@ int main() {
 					Get_Time_sec_parts(&cm.sync_time_s, &cm.sync_time_low);
 					uint64_val = ((uint64_t)mko_dev.data[1] << 32) + ((uint64_t)mko_dev.data[2] << 16); // + ((uint64_t)mko_dev.data[3] << 0)) & 0xFFFFFFFFFFFF; часть для дробной синхронизации
 					Time_Set(uint64_val, &cm.diff_time_s, &cm.diff_time_low);
+					MPP_time_set();
 					cm.sync_num += 1;
                 }
 				else if (mko_dev.data[0] == 0x0002) {  //  инициализация ЦМ
@@ -245,11 +245,8 @@ int main() {
 				else if (mko_dev.data[0] == 0x0009) {  // установка уровня токовой защиты
 					if (mko_dev.data[1] <= 6) cm.pwr_bounds[mko_dev.data[1]] = mko_dev.data[2];
 				}
-				else if (mko_dev.data[0] == 0x000A) {  // установка уровня токовой защиты
-					if (mko_dev.data[1] <= 6) {
-						if (mko_dev.data[2] & 0x01) cm.pwr_state |= (1<<mko_dev.data[1]);
-						else cm.pwr_state &= ~(1<<mko_dev.data[1]);
-					}
+				else if (mko_dev.data[0] == 0x000A) {  // установка состояния питания модулей
+					Set_Pwr_State(&cm.pwr_state, &cm.pwr_status, mko_dev.data[1] & 0xFF, mko_dev.data[2] & 0x01);
 				}
 				else if (mko_dev.data[0] == 0x000C) {  // управление порогом отключения МБКАП по МПП100
 					//

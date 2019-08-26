@@ -8,6 +8,29 @@ typeSysFrames sys_frame;
 uint8_t in_buff[256];
 uint8_t out_buff[256];
 
+// обработка информации о потреблении токов
+uint8_t  Pwr_current_process(typeCMParameters* cm_ptr)
+{
+	uint8_t i, status_1 = 0, status_2 = 0;
+	uint8_t new_pwr_state = cm_ptr->pwr_state;
+	status_1 = Get_Modules_Current(cm_ptr->currents, cm_ptr->pwr_bounds); //токи [МБКАП, ЦМ, МПП100, МПП27, ДИР, ДНТ, АДИИ]
+	if (status_1) status_2 = Get_Modules_Current(cm_ptr->currents, cm_ptr->pwr_bounds); //в случае обнаружения превышения на всякий прочитаем еще раз, что бы исключаить разовый выброс от ВЧ-помехи
+	cm_ptr->pwr_status |= (status_1 & status_2);
+	if ((status_1 & status_2)  != 0){
+		for (i=2; i<7; i++) { //отключаем таким способом все блоки кроме МБКАП и ЦМ
+			if (((status_1 & status_2) & (1 << i)) != 0) {
+				new_pwr_state &= ~(0x01 << i); //если два раза измерения токов показали превышения для отдельного модуля, то подготовливаем state для его отключения
+			} 
+		}
+	}
+	if (cm_ptr->pwr_state != new_pwr_state){
+		Pwr_Ctrl_by_State(new_pwr_state);
+		cm_ptr->pwr_state = new_pwr_state;
+		return 1; 
+	}
+	return 0;
+}
+
 // функция для работы с памятью
 int8_t Save_Data_Frame(uint8_t* frame, typeCMParameters* cm_ptr)  // сохранение кадра с данными в архивную память
 {
@@ -146,7 +169,8 @@ void _cm_params_set_default(typeCMParameters* cm_ptr)
 	cm_ptr->pwr_bounds[4] = DIR_BOUND;
 	cm_ptr->pwr_bounds[5] = DNT_BOUND;
 	cm_ptr->pwr_bounds[6] = ADII_BOUND;
-	cm_ptr->pwr_state = 0x3F; // все шесть модулей включены
+	cm_ptr->pwr_state = 0x7F; // все шесть модулей включены
+	cm_ptr->pwr_status = 0x00; // все шесть модулей включены
 	//
 	cm_ptr->measure_interval = DEFAULT_MEAS_INTERVAL_S;
 	cm_ptr->sys_interval = DEFAULT_SYS_INTERVAL_S;
@@ -245,6 +269,7 @@ void Sys_Frame_Build(typeSysFrames *sys_frame, typeCMParameters* cm_ptr)
     sys_frame->measure_interval = cm_ptr->measure_interval;
     sys_frame->sys_interval = cm_ptr->sys_interval;
     sys_frame->pwr_status = cm_ptr->pwr_status;
+    sys_frame->pwr_state = cm_ptr->pwr_state;
 	// adii 
     sys_frame->adii_mode = cm_ptr->adii_mode;
     sys_frame->adii_fk = cm_ptr->adii_fk;
@@ -277,23 +302,6 @@ uint8_t get_mko_addr(uint8_t def_addr)
 		mko_addr = def_addr;
 	}
 	return mko_addr;
-}
-
-// управление питанием
-void  Pwr_current_process(typeCMParameters* cm_ptr)
-{
-	uint8_t i, status_1 = 0, status_2 = 0;
-	status_1 = Get_Modules_Current(cm_ptr->currents, cm_ptr->pwr_bounds); //токи [МБКАП, ЦМ, МПП100, МПП27, ДИР, ДНТ, АДИИ]
-	if (status_1 & 0x3F) status_2 = Get_Modules_Current(cm_ptr->currents, cm_ptr->pwr_bounds); //в случае обнаружения превышения на всякий прочитаем еще раз, что бы исключаить разовый выброс от ВЧ-помехи
-	cm_ptr->pwr_status |= (status_1 & status_2);
-	if ((status_1 & status_2)  != 0){
-		for (i=0; i<7; i++) { //отключаем таким способом все блоки кроме МБКАП и ЦМ
-			if (((status_1 & status_2) & (1 << i)) != 0) {
-				cm_ptr->pwr_state &= ~(0x01 << i); //если два раза измерения токов показали превышения для отдельного модуля, то подготовливаем state для его отключения
-			} 
-		}
-	}
-	Pwr_Ctrl_by_State(cm_ptr->pwr_state); //pwr_state: 0-CM, 1-MPP27, 2-MPP100, 3-DIR, 4-DNT, 5-ADII  6-7-NU
 }
 
 //отладочный интерфейс
@@ -486,7 +494,7 @@ uint16_t Tech_SA_Transaction(uint16_t *data_arr) // функция для тра
 	return return_val;
 }
 
-//получение идентификационной строки для переферии
+//получение идентификационной строки для переферии при включении 
 int8_t Pereph_On_and_Get_ID_Frame(uint8_t dev_num, typeDevStartInformation* dev_init_inf_ptr) //включаем переферии и получаем от нее идентификационный пакет
 {
 	uint8_t in_buff[256], leng=0, i=0, inf_leng=0;
