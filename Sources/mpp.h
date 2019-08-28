@@ -61,6 +61,7 @@ void MPP_constatnt_mode(uint8_t mode);  // широковещательная; m
 void MPP_On(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr);
 void MPP_Off(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr);
 void MPP_Offset_Set(typeMPPDevice *mpp_ptr, uint16_t offset, typeCMParameters* cm_ptr);
+void MPP_Pwr_Off_Bound_Set(typeMPPDevice *mpp_ptr, uint16_t bound, typeCMParameters* cm_ptr);
 void MPP_arch_count_offset_get(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr);
 void MPP_struct_request(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr);
 void MPP_struct_get(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr);

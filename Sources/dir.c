@@ -68,7 +68,7 @@ void DIR_Frame_Init(typeDIRDevice *dir_ptr)
 	memset(&dir_ptr->frame, 0xFEFE, sizeof(typeDIRFrame));
 	dir_ptr->frame.label = 0x0FF1;
 	dir_ptr->frame.definer = dir_ptr->ctrl.frame_definer;
-	dir_ptr->frame.time = Get_Time_s();
+	dir_ptr->frame.time = _rev_u32(Get_Time_s());
 	dir_ptr->frame.crc16 = crc16_ccitt((uint8_t*)&dir_ptr->frame, 62);
 	memcpy((uint8_t *)frame, (uint8_t *)(&dir_ptr->frame), sizeof(typeDIRFrame));
 	//
@@ -81,7 +81,7 @@ void DIR_Frame_Build(typeDIRDevice *dir_ptr, typeCMParameters* cm_ptr)
 	dir_ptr->frame.label = 0x0FF1;
 	dir_ptr->frame.definer = dir_ptr->ctrl.frame_definer;
 	dir_ptr->frame.num = cm_ptr->frame_number;
-	dir_ptr->frame.time = Get_Time_s();
+	dir_ptr->frame.time = _rev_u32(Get_Time_s());
 	dir_ptr->frame.crc16 = crc16_ccitt((uint8_t*)&dir_ptr->frame, 62);
 	cm_ptr->frame_number += 1;
 	memcpy((uint8_t *)frame, (uint8_t *)(&dir_ptr->frame), sizeof(typeDIRFrame));
@@ -114,7 +114,7 @@ void DNT_Init(typeDNTDevice *dnt_ptr, uint16_t frame_definer, uint16_t dev_frame
 	dnt_ptr->ctrl.dev_frame_num = 0;
 	dnt_ptr->ctrl.dir_id = dir_id;
 	// Параметры работы прибора
-	dnt_ptr->ctrl.mode = 1;
+	dnt_ptr->ctrl.mode = 0x02;
 	dnt_ptr->ctrl.meas_num = 0;
 	// Иницилизация кадра
 	DNT_Frame_Init(dnt_ptr);
@@ -124,6 +124,7 @@ void DNT_Init(typeDNTDevice *dnt_ptr, uint16_t frame_definer, uint16_t dev_frame
 
 void DNT_MKO_Read_Initiate(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr)
 {
+	typeDIRMKOData mko_data;
 	dnt_ptr->ctrl.mko.Run = 0x0001;
 	dnt_ptr->ctrl.mko.BSIStat = 0x0000;
 	memset((uint8_t*)&dnt_ptr->ctrl.mko.packet.Data[0], 0xFE, 66);
@@ -131,19 +132,24 @@ void DNT_MKO_Read_Initiate(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr)
 																(0x01 << 10) + //направление передачи: 0 - КК->ОУ, 1 - ОУ->КК
 																((30 & 0x1F) << 5) + //подадрес: 30 - данные ДНТ
 																(32 & 0x1F);  //длина: читаем по 32 слова
-	F_Trans(cm_ptr, 16, dnt_ptr->ctrl.dir_id, 0x0100, sizeof(typeDIRMKOData)/2, (uint16_t*)&dnt_ptr->ctrl.mko);
+	// переставляем байты в 16-битных словах
+	mko_data = dnt_ptr->ctrl.mko;
+	_dir_mko_data_struct_rev(&mko_data);
+	//
+	F_Trans(cm_ptr, 16, dnt_ptr->ctrl.dir_id,  0x0100, sizeof(typeDIRMKOData)/2, (uint16_t*)&mko_data);
 }
 
 void DNT_MKO_Read_Finish(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr)
 {
 	// Читаем данные из ДИР из структуры управления МКО
 	F_Trans(cm_ptr, 3, dnt_ptr->ctrl.dir_id, 0x0100, sizeof(typeDIRMKOData)/2, (uint16_t*)&dnt_ptr->ctrl.mko);
+	_dir_mko_data_struct_rev(&dnt_ptr->ctrl.mko);
 	//перекладываем данные в структуру с подадресом, формируемым ДНТ
-	memcpy((uint8_t *) &dnt_ptr->ctrl.mko.packet.Data[1], (uint8_t*)&dnt_ptr->dev_frame, 64);
+	memcpy((uint8_t*)&dnt_ptr->dev_frame, (uint8_t *) &dnt_ptr->ctrl.mko.packet.Data[1], 64);
 	// вяческие проверки
 	if ((dnt_ptr->ctrl.mko.Run) || (dnt_ptr->ctrl.mko.BSIStat & 0x1000)){  //ошибка транзакции МКО в ДИР
-		cm_ptr->bus_error_cnt += 1;
-		cm_ptr->bus_error_status |= 1<<5;
+		cm_ptr->bus_nans_cnt += 1;
+		cm_ptr->bus_nans_status |= 1<<5;
 	}
 	else if ((dnt_ptr->ctrl.mko.packet.Data[0]  & 0xF800) != (dnt_ptr->ctrl.mko.packet.CmdWord & 0xF800)){ //проверка совпадения адресов МКО в КС и ОС
 		cm_ptr->bus_nans_cnt += 1;
@@ -154,18 +160,10 @@ void DNT_MKO_Read_Finish(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr)
 		cm_ptr->bus_error_status |= 1<<5;
 	}
 	else if (dnt_ptr->dev_frame.num == dnt_ptr->ctrl.dev_frame_num){ // проверка на изменение номерка кадра (что бы определить читаем ли мы старый кадр, или новый)
-		cm_ptr->bus_nans_cnt += 1;
-		cm_ptr->bus_nans_status |= 1<<5;
+		cm_ptr->bus_error_cnt += 1;
+		cm_ptr->bus_error_status |= 1<<5;
 	}
 	// несмотря на ошибки разбираем данные: игнорируем их, т.к. нет смысла отбрасывать данные - валидность проверится по ошибкам
-	dnt_ptr->ctrl.meas_num += 1;
-	if (dnt_ptr->ctrl.meas_num >= 12){ // когда намерили 12 измерений  сохраняем в ЗУ и выкладываем на ПА
-		dnt_ptr->ctrl.meas_num = 0;
-		DNT_Frame_Build(dnt_ptr, cm_ptr);
-	}
-	else{ //если память еще кадр не заполнен до конца просто выкладываем на ПА (для удобства последующего тестирования)
-		DNT_Frame_Write_to_SA(dnt_ptr, cm_ptr);
-	}
 	dnt_ptr->frame.data[dnt_ptr->ctrl.meas_num].current = dnt_ptr->dev_frame.current;
 	dnt_ptr->frame.data[dnt_ptr->ctrl.meas_num].temp = (dnt_ptr->dev_frame.temperature >> 8) & 0xFF;
 	dnt_ptr->frame.data[dnt_ptr->ctrl.meas_num].ku = dnt_ptr->dev_frame.dnt_state & 0x03;
@@ -177,9 +175,62 @@ void DNT_MKO_Read_Finish(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr)
 		//
 		dnt_ptr->ctrl.last_measure_interval = cm_ptr->measure_interval;
 	}		
+	//
+	dnt_ptr->ctrl.meas_num += 1;
+	if (dnt_ptr->ctrl.meas_num >= 12){ // когда намерили 12 измерений  сохраняем в ЗУ и выкладываем на ПА
+		dnt_ptr->ctrl.meas_num = 0;
+		DNT_Frame_Build(dnt_ptr, cm_ptr);
+	}
+	else{ //если память еще кадр не заполнен до конца просто выкладываем на ПА (для удобства последующего тестирования)
+		DNT_Frame_Write_to_SA(dnt_ptr, cm_ptr);
+	}
 }
 
 void DNT_MKO_Measure_Initiate(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr)
+{
+	typeDIRMKOData mko_data;
+	dnt_ptr->ctrl.mko.Run = 0x0001;
+	dnt_ptr->ctrl.mko.BSIStat = 0x0000;
+	memset((uint8_t*)&dnt_ptr->ctrl.mko.packet.Data[0], 0xFE, 66);
+	//
+	dnt_ptr->ctrl.mko.packet.CmdWord = 	((dnt_ptr->ctrl.mko_addr & 0x1F) << 11) +  //адрес мко
+																(0x00 << 10) + //направление передачи: 0 - КК->ОУ, 1 - ОУ->КК
+																((29 & 0x1F) << 5) + //подадрес: 30 - данные ДНТ
+																(32 & 0x1F);  //длина: читаем/пишем по 32 слова
+	dnt_ptr->ctrl.mko.packet.Data[0] = 0x0FF1;
+	dnt_ptr->ctrl.mko.packet.Data[1] = dnt_ptr->ctrl.dev_frame_definer + 1; //у кадар с данными тип 0, у ПА управления - 1
+	dnt_ptr->ctrl.mko.packet.Data[2] = 1; //время измерения в с
+	dnt_ptr->ctrl.mko.packet.Data[3] = 100; //мертвое время измерения в мс
+	dnt_ptr->ctrl.mko.packet.Data[4] = 0; // тип для осциллограммы: 0 - ток, 1 - нуль
+	dnt_ptr->ctrl.mko.packet.Data[5] = 0; // ку для осциллограммы
+	dnt_ptr->ctrl.mko.packet.Data[6] = dnt_ptr->ctrl.mode;
+	// переставляем байты в 16-битных словах
+	mko_data = dnt_ptr->ctrl.mko;
+	_dir_mko_data_struct_rev(&mko_data);
+	//
+	F_Trans(cm_ptr, 16, dnt_ptr->ctrl.dir_id,  0x0100, sizeof(typeDIRMKOData)/2, (uint16_t*)&mko_data);
+}
+
+void DNT_MKO_Measure_Finish(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr)
+{
+	// Читаем данные из ДИР из структуры управления МКО
+	F_Trans(cm_ptr, 3, dnt_ptr->ctrl.dir_id,  0x0100, sizeof(typeDIRMKOData)/2, (uint16_t*)&dnt_ptr->ctrl.mko);
+	// вяческие проверки
+	if ((dnt_ptr->ctrl.mko.Run) || (dnt_ptr->ctrl.mko.BSIStat & 0x1000)){  //ошибка транзакции МКО в ДИР
+		cm_ptr->bus_nans_cnt += 1;
+		cm_ptr->bus_nans_status |= 1<<5;
+	}
+	else if ((dnt_ptr->ctrl.mko.packet.Data[32]  & 0xF800) != (dnt_ptr->ctrl.mko.packet.CmdWord & 0xF800)){ //проверка совпадения адресов МКО в КС и ОС
+		cm_ptr->bus_nans_cnt += 1;
+		cm_ptr->bus_nans_status |= 1<<5;
+	}
+	else if (dnt_ptr->ctrl.mko.packet.Data[6] & 0x2){ // проверка на окончание измерения при единичном запуске
+		cm_ptr->bus_error_cnt += 1;
+		cm_ptr->bus_error_status |= 1<<5;
+	}
+}
+
+void DNT_MKO_Constant_Mode(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr, uint8_t on)
 {
 	dnt_ptr->ctrl.mko.Run = 0x0001;
 	dnt_ptr->ctrl.mko.BSIStat = 0x0000;
@@ -191,35 +242,14 @@ void DNT_MKO_Measure_Initiate(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr)
 																(32 & 0x1F);  //длина: читаем/пишем по 32 слова
 	dnt_ptr->ctrl.mko.packet.Data[0] = 0x0FF1;
 	dnt_ptr->ctrl.mko.packet.Data[1] = dnt_ptr->ctrl.dev_frame_definer + 1; //у кадар с данными тип 0, у ПА управления - 1
-	dnt_ptr->ctrl.mko.packet.Data[2] = 1;
-	dnt_ptr->ctrl.mko.packet.Data[3] = 100;
-	dnt_ptr->ctrl.mko.packet.Data[4] = 0;
-	dnt_ptr->ctrl.mko.packet.Data[5] = 0;
+	dnt_ptr->ctrl.mko.packet.Data[2] = 1; //время измерения в с
+	dnt_ptr->ctrl.mko.packet.Data[3] = 100; //мертвое время измерения в мс
+	dnt_ptr->ctrl.mko.packet.Data[4] = 0; // тип для осциллограммы: 0 - ток, 1 - нуль
+	dnt_ptr->ctrl.mko.packet.Data[5] = 0; // ку для осциллограммы
+	if (on)  dnt_ptr->ctrl.mode |= 0x10;
+	else dnt_ptr->ctrl.mko.packet.Data[6] = dnt_ptr->ctrl.mode &= (~0x10);
 	dnt_ptr->ctrl.mko.packet.Data[6] = dnt_ptr->ctrl.mode;
 	F_Trans(cm_ptr, 16, dnt_ptr->ctrl.dir_id,  0x0100, sizeof(typeDIRMKOData)/2, (uint16_t*)&dnt_ptr->ctrl.mko);
-}
-
-void DNT_MKO_Measure_Finish(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr)
-{
-	// Читаем данные из ДИР из структуры управления МКО
-	F_Trans(cm_ptr, 3, dnt_ptr->ctrl.dir_id,  0x0100, sizeof(typeDIRMKOData)/2, (uint16_t*)&dnt_ptr->ctrl.mko);
-	// вяческие проверки
-	if ((dnt_ptr->ctrl.mko.Run) || (dnt_ptr->ctrl.mko.BSIStat & 0x1000)){  //ошибка транзакции МКО в ДИР
-		cm_ptr->bus_error_cnt += 1;
-		cm_ptr->bus_error_status |= 1<<5;
-	}
-	else if ((dnt_ptr->ctrl.mko.packet.Data[32]  & 0xF800) != (dnt_ptr->ctrl.mko.packet.CmdWord & 0xF800)){ //проверка совпадения адресов МКО в КС и ОС
-		cm_ptr->bus_nans_cnt += 1;
-		cm_ptr->bus_nans_status |= 1<<5;
-	}
-	else if ((dnt_ptr->ctrl.mko.packet.Data[0] != 0x0FF1) && ((dnt_ptr->ctrl.mko.packet.Data[2] & 0xFC07) != ((dnt_ptr->ctrl.dev_frame_definer+1) & 0xFC07))){ //Проверка совпадение метки и определителя кадра из ДНТ без учета заводского номера
-		cm_ptr->bus_error_cnt += 1;
-		cm_ptr->bus_error_status |= 1<<5;
-	}
-	else if (dnt_ptr->ctrl.mko.packet.Data[6] & 0x2){ // проверка на окончание измерения при единичном запуске
-		cm_ptr->bus_error_cnt += 1;
-		cm_ptr->bus_error_status |= 1<<5;
-	}
 }
 /* формирование кадров */
 void DNT_Frame_Init(typeDNTDevice *dnt_ptr)
@@ -228,7 +258,7 @@ void DNT_Frame_Init(typeDNTDevice *dnt_ptr)
 	memset(&dnt_ptr->frame, 0xFEFE, sizeof(typeDNTFrame));
 	dnt_ptr->frame.label = 0x0FF1;
 	dnt_ptr->frame.definer = dnt_ptr->ctrl.frame_definer;
-	dnt_ptr->frame.time = Get_Time_s();
+	dnt_ptr->frame.time = _rev_u32(Get_Time_s());
 	dnt_ptr->frame.crc16 = crc16_ccitt((uint8_t*)&dnt_ptr->frame, 62);
 	memcpy((uint8_t *)frame, (uint8_t *)(&dnt_ptr->frame), sizeof(typeDNTFrame));
 	//
@@ -241,7 +271,7 @@ void DNT_Frame_Build(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr)
 	dnt_ptr->frame.label = 0x0FF1;
 	dnt_ptr->frame.definer = dnt_ptr->ctrl.frame_definer;
 	dnt_ptr->frame.num = cm_ptr->frame_number;
-	dnt_ptr->frame.time = Get_Time_s();
+	dnt_ptr->frame.time = _rev_u32(Get_Time_s());
 	dnt_ptr->frame.crc16 = crc16_ccitt((uint8_t*)&dnt_ptr->frame, 62);
 	cm_ptr->frame_number += 1;
 	memcpy((uint8_t *)frame, (uint8_t *)(&dnt_ptr->frame), sizeof(typeDNTFrame));
@@ -256,7 +286,7 @@ void DNT_Frame_Write_to_SA(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr)
 	dnt_ptr->frame.label = 0x0FF1;
 	dnt_ptr->frame.definer = dnt_ptr->ctrl.frame_definer;
 	dnt_ptr->frame.num = cm_ptr->frame_number;
-	dnt_ptr->frame.time = Get_Time_s();
+	dnt_ptr->frame.time = _rev_u32(Get_Time_s());
 	dnt_ptr->frame.crc16 = crc16_ccitt((uint8_t*)&dnt_ptr->frame, 62);
 	//cm_ptr->frame_number += 1;
 	memcpy((uint8_t *)frame, (uint8_t *)(&dnt_ptr->frame), sizeof(typeDNTFrame));
@@ -281,8 +311,8 @@ void ADII_Init(typeADIIDevice *adii_ptr, uint16_t frame_definer, uint8_t sub_add
 
 void ADII_Meas_Start(typeADIIDevice *adii_ptr, typeCMParameters* cm_ptr)  //управление командой происходит переменной adii.ctrl.mode: 1 - режим тестирования, 0 - нормальный режим
 {
-	adii_ptr->ctrl.data.Run = 0x0001;
-	adii_ptr->ctrl.data.RxLeng = 0x0001;
+	adii_ptr->ctrl.data.Run = 0x0001;  //размер передаваемой из АДИИ структуры
+	adii_ptr->ctrl.data.RxLeng = 0x0000;
 	memset((uint8_t*)&adii_ptr->ctrl.data.Data[0], 0x00, 64);
 	// выбираем режим для запуска: если режим тестовый ("m"), то он сбрасывается на нормальный
 	if(adii_ptr->ctrl.mode == 1){  //при режиме тестирования разово запускаем и меняем его на обычный режим
@@ -303,12 +333,13 @@ void ADII_Read_Data(typeADIIDevice *adii_ptr, typeCMParameters* cm_ptr)
 {
 	// Читаем данные из ДИР из структуры управления МКО
 	F_Trans(cm_ptr, 3, adii_ptr->ctrl.dir_id, 0x0200, sizeof(typeADIIData)/2, (uint16_t*)&adii_ptr->ctrl.data);
+	_adii_data_rev(&adii_ptr->ctrl.data);
 	// данные в кадр
 	memcpy((uint8_t*)adii_ptr->frame.cnt_val, (uint8_t*)&adii_ptr->ctrl.data.Data[1], 52);
 	// проверка на неответ АДИИ
 	if (adii_ptr->ctrl.data.RxLeng == 0){
 		cm_ptr->adii_mode = 0x00;
-		cm_ptr->adii_fk = 0xFF;
+		cm_ptr->adii_fk = 0x00;
 		cm_ptr->bus_nans_cnt += 1;
 		cm_ptr->bus_nans_status |= 1<<6;
 	}
@@ -316,8 +347,8 @@ void ADII_Read_Data(typeADIIDevice *adii_ptr, typeCMParameters* cm_ptr)
 		// показания ФК и режима складываем в структуру параметров ЦМ
 		if (_adii_crc_check((uint8_t*)&adii_ptr->ctrl.data.Data[0], 54) == adii_ptr->ctrl.data.Data[54]) cm_ptr->adii_mode |= 0x80; // проверка контрольной суммы
 		else	cm_ptr->adii_mode = 0;
-		cm_ptr->adii_mode |= adii_ptr->ctrl.data.Data[53];
-		cm_ptr->adii_fk &= adii_ptr->ctrl.data.Data[0];
+		cm_ptr->adii_mode = adii_ptr->ctrl.data.Data[53];
+		cm_ptr->adii_fk = adii_ptr->ctrl.data.Data[0];
 	}
 	// Выкоалываем на ПА и сохраняем в ЗУ
 	ADII_Frame_Build(adii_ptr, cm_ptr);
@@ -330,7 +361,7 @@ void ADII_Frame_Init(typeADIIDevice *adii_ptr)
 	memset(&adii_ptr->frame, 0xFEFE, sizeof(typeDNTFrame));
 	adii_ptr->frame.label = 0x0FF1;
 	adii_ptr->frame.definer = adii_ptr->ctrl.frame_definer;
-	adii_ptr->frame.time = Get_Time_s();
+	adii_ptr->frame.time = _rev_u32(Get_Time_s());
 	adii_ptr->frame.crc16 = crc16_ccitt((uint8_t*)&adii_ptr->frame, 62);
 	memcpy((uint8_t *)frame, (uint8_t *)(&adii_ptr->frame), sizeof(typeDNTFrame));
 	//
@@ -343,7 +374,7 @@ void ADII_Frame_Build(typeADIIDevice *adii_ptr, typeCMParameters* cm_ptr)
 	adii_ptr->frame.label = 0x0FF1;
 	adii_ptr->frame.definer = adii_ptr->ctrl.frame_definer;
 	adii_ptr->frame.num = cm_ptr->frame_number;
-	adii_ptr->frame.time = Get_Time_s();
+	adii_ptr->frame.time = _rev_u32(Get_Time_s());
 	adii_ptr->frame.crc16 = crc16_ccitt((uint8_t*)&adii_ptr->frame, 62);
 	cm_ptr->frame_number += 1;
 	memcpy((uint8_t *)frame, (uint8_t *)(&adii_ptr->frame), sizeof(typeDNTFrame));
@@ -359,4 +390,26 @@ uint8_t _adii_crc_check(uint8_t* buff, uint8_t leng) //проверка конт
 		crc += buff[i];
 	}
 	return crc;
+}
+
+void _dir_mko_data_struct_rev(typeDIRMKOData* struct_ptr)
+{  
+    uint16_t data[64];
+    uint8_t i = 0;
+    memcpy((uint8_t *)data, (uint8_t *)struct_ptr, sizeof(typeDIRMKOData));
+    for (i=0; i<(sizeof(typeDIRMKOData)/2); i++) {
+        data[i] = __REV16(data[i]);
+    }
+    memcpy((uint8_t *)struct_ptr, (uint8_t *)data, sizeof(typeDIRMKOData));
+}
+
+void _adii_data_rev(typeADIIData* struct_ptr)
+{  
+    uint16_t data[32];
+    uint8_t i = 0;
+    memcpy((uint8_t *)data, (uint8_t *)&struct_ptr->Data[0], 64);
+    for (i=0; i<32; i++) {
+        data[i] = __REV16(data[i]);
+    }
+    memcpy((uint8_t *)&struct_ptr->Data[0], (uint8_t *)data, 64);
 }

@@ -230,7 +230,7 @@ void Sys_Frame_Init(typeSysFrames *sys_frame) //инициализируются
     memset((uint8_t*)sys_frame, 0xFE, leng);
     sys_frame->label = 0x0FF1;
     sys_frame->definer = _frame_definer(0, DEV_NUM, 0, SYS_FRAME_NUM);
-    sys_frame->time = Get_Time_s();
+    sys_frame->time = _rev_u32(Get_Time_s());
     sys_frame->crc16 = crc16_ccitt((uint8_t*)sys_frame, 62);
     memcpy((uint8_t *)frame, (uint8_t *)sys_frame, sizeof(typeSysFrames));
     //
@@ -245,7 +245,7 @@ void Sys_Frame_Build(typeSysFrames *sys_frame, typeCMParameters* cm_ptr)
 	sys_frame->label = 0x0FF1;
 	sys_frame->num = cm_ptr->frame_number;
 	sys_frame->definer = _frame_definer(0, DEV_NUM, 0, SYS_FRAME_NUM);
-    sys_frame->time =  Get_Time_s();
+    sys_frame->time = _rev_u32(Get_Time_s());
 	//
     memcpy(sys_frame->currents, cm_ptr->currents, 7*sizeof(uint16_t));
     sys_frame->read_ptr = cm_ptr->read_ptr;
@@ -256,7 +256,7 @@ void Sys_Frame_Build(typeSysFrames *sys_frame, typeCMParameters* cm_ptr)
     sys_frame->diff_time_s = cm_ptr->diff_time_s;
     sys_frame->diff_time_low = cm_ptr->diff_time_low;
     sys_frame->sync_num = cm_ptr->sync_num;
-	sys_frame->sync_time_s = cm_ptr->sync_time_s;
+	sys_frame->sync_time_s = _rev_u32( cm_ptr->sync_time_s);
 	sys_frame->stm_val = cm_ptr->stm_val;
 	sys_frame->sync_time_low = cm_ptr->sync_time_low;
 	sys_frame->bus_nans_cnt = cm_ptr->bus_nans_cnt;
@@ -431,7 +431,7 @@ int8_t F_Trans(typeCMParameters* cm_ptr, uint8_t code, uint8_t dev_id, uint16_t 
 		}
 		else { //
 			if (code == 3){
-				memcpy((uint8_t*)data_arr, &in_buff[6], in_buff[2]);
+				memcpy((uint8_t*)data_arr, &in_buff[3], in_buff[2]);
 			}
 		}
 		return status;

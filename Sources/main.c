@@ -63,7 +63,7 @@ int main() {
 	MPP_Init(&mpp27, _frame_definer(0, DEV_NUM, 0, MPP27_FRAME_NUM), MPP27_FRAME_NUM, MPP27_ID, MPP27_DEF_OFFSET, &cm);
 	MPP_Init(&mpp100, _frame_definer(0, DEV_NUM, 0, MPP100_FRAME_NUM), MPP100_FRAME_NUM, MPP100_ID, MPP100_DEF_OFFSET, &cm);
 	DIR_Init(&dir, _frame_definer(0, DEV_NUM, 0, DIR_FRAME_NUM), DIR_FRAME_NUM, DIR_ID, &cm);
-	DNT_Init(&dnt, _frame_definer(0, DEV_NUM, 0, DNT_FRAME_NUM), _frame_definer(0, DNT_DEV_NUM, 5, DNT_FRAME_NUM), DNT_FRAME_NUM, DNT_MKO_ADDR, DIR_ID, &cm);
+	DNT_Init(&dnt, _frame_definer(0, DEV_NUM, 0, DNT_FRAME_NUM), _frame_definer(1, DNT_DEV_NUM, 5, DNT_DEV_FRAME_NUM), DNT_FRAME_NUM, DNT_MKO_ADDR, DIR_ID, &cm);
 	ADII_Init(&adii, _frame_definer(0, DEV_NUM, 0, ADII_FRAME_NUM), ADII_FRAME_NUM, DIR_ID, &cm);
 	// запускаем вотчдог
 	WDT_Init();	
@@ -240,7 +240,8 @@ int main() {
 				}
 				else if (mko_dev.data[0] == 0x0008) {  // включение режима констант
 					MPP_constatnt_mode(mko_dev.data[1] & 0x01);  // широковещательная; mode: 1 - on; 0 - off
-					// надо сделать и для АДИИ и ДИР
+					//
+					DNT_MKO_Constant_Mode(&dnt, &cm, 0x01 & mko_dev.data[1]);
 				}
 				else if (mko_dev.data[0] == 0x0009) {  // установка уровня токовой защиты
 					if (mko_dev.data[1] <= 6) cm.pwr_bounds[mko_dev.data[1]] = mko_dev.data[2];

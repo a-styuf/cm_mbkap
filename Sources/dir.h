@@ -167,7 +167,7 @@ typedef  struct // структура с управляющими перемен
 	//
 	uint8_t dir_id;			//адрес ДИР на внутренней шине (с ДНТ общение через ДИР)
 	//
-	uint8_t mode; // 0 - режим измерения, 1 - тестовый режим
+	uint8_t mode; // Биты: 0 - режим измерения, 1 - запуск осциллограммы (NU), 2 - единичное измерение, 3 - циклическое измерение, 5 - режим констант (режимы из описания ДНТ)
 	typeADIIData data;
 }typeADIIControl;
 
@@ -193,6 +193,7 @@ void DNT_MKO_Read_Initiate(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr);
 void DNT_MKO_Read_Finish(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr);
 void DNT_MKO_Measure_Initiate(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr);
 void DNT_MKO_Measure_Finish(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr);
+void DNT_MKO_Constant_Mode(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr, uint8_t on);
 /* формирование кадров */
 void DNT_Frame_Init(typeDNTDevice *dnt_ptr);
 void DNT_Frame_Build(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr);
@@ -206,4 +207,6 @@ void ADII_Frame_Init(typeADIIDevice *adii_ptr);
 void ADII_Frame_Build(typeADIIDevice *adii_ptr, typeCMParameters* cm_ptr);
 /* функции для внутреннего использования */
 uint8_t _adii_crc_check(uint8_t* buff, uint8_t leng); //проверка контрольной суммы для АДИИ !!! требуются тесты
+void _dir_mko_data_struct_rev(typeDIRMKOData* struct_ptr);
+void _adii_data_rev(typeADIIData* struct_ptr);
 #endif

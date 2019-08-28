@@ -14,37 +14,43 @@ void MPP_Init(typeMPPDevice *mpp_ptr, uint16_t frame_definer, uint8_t sub_addr, 
 	mpp_ptr->ctrl.frame_definer = frame_definer;
 	mpp_ptr->ctrl.sub_addr = sub_addr;
 	mpp_ptr->ctrl.id = id;
-	// Иницилизация кадра
-	MPP_Frame_Init(mpp_ptr);
 	// Включение МПП
 	MPP_On(mpp_ptr, cm_ptr);
+	// Иницилизация кадра
+	MPP_Frame_Init(mpp_ptr);
 	// Установка отсечки
 	MPP_Offset_Set(mpp_ptr, offset, cm_ptr);
+	// Установка порога срабатывания отключения
+	MPP_Pwr_Off_Bound_Set(mpp_ptr, MPP100_DEF_BOUND, cm_ptr);
 }
 
 /* Общение с МПП по ВШ */
 void MPP_time_set(void) // широковещательная
 {
-	uint8_t out_buff[8];
+	uint8_t out_buff[8], i;
     uint32_t time = 0;
-    //
-    time = Get_Time_s();
-    //
-    out_buff[0] = 0xFF;  // широковещательная команд
-    out_buff[1] = 111;
-    out_buff[2] = (time >> 24)  & 0xFF;
-    out_buff[3] = (time >> 16)  & 0xFF;
-    out_buff[4] = (time >> 8)  & 0xFF;
-    out_buff[5] = (time >> 0)  & 0xFF;
-    //
-    UART0_SendPacket(out_buff, 6, 1);
+	//
+	time = Get_Time_s();
+	//
+	out_buff[0] = 0xFF;  // широковещательная команд
+	out_buff[1] = 111;
+	out_buff[2] = (time >> 24)  & 0xFF;
+	out_buff[3] = (time >> 16)  & 0xFF;
+	out_buff[4] = (time >> 8)  & 0xFF;
+	out_buff[5] = (time >> 0)  & 0xFF;
+	//
+	for (i=0; i<3; i++){ //отправляем три раза для надежности
+		UART0_SendPacket(out_buff, 6, 1);
+		Timers_Start(1, 3); // дополнительный таймаут для разделения пакетов
+		while (Timers_Status(1) == 0) {};
+	}
 }
 
 void MPP_constatnt_mode(uint8_t mode)  // широковещательная; mode: 1 - on; 0 - off;
 {
-	uint8_t out_buff[8];
+	uint8_t out_buff[8], i;
     uint8_t mode_mask = 0;
-		if (mode == 1) mode_mask = 0xFF;
+	if (mode == 1) mode_mask = 0xFF;
     //
     out_buff[0] = 0xFF;  // широковещательная команд
     out_buff[1] = 106;  // формат, что бы случайно не послать такую команду
@@ -53,7 +59,11 @@ void MPP_constatnt_mode(uint8_t mode)  // широковещательная; mo
     out_buff[4] = 0xAA & mode_mask; //clear data if mode 0
     out_buff[5] = 0xAA & mode_mask;
     //
-    UART0_SendPacket(out_buff, 6, 1);
+	for (i=0; i<3; i++){
+		UART0_SendPacket(out_buff, 6, 1);
+		Timers_Start(1, 3); // дополнительный таймаут для разделения пакетов
+		while (Timers_Status(1) == 0) {};
+	}
 }
 
 void MPP_On(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr)
@@ -84,6 +94,14 @@ void MPP_Offset_Set(typeMPPDevice *mpp_ptr, uint16_t offset, typeCMParameters* c
 	F_Trans(cm_ptr, 16, mpp_ptr->ctrl.id, 0, 2, data);
 }
 
+void MPP_Pwr_Off_Bound_Set(typeMPPDevice *mpp_ptr, uint16_t bound, typeCMParameters* cm_ptr)
+{
+	uint16_t data[2];
+	data[0] = (0x5A << 8); // 0х01 - команда на установку уставки
+	data[1] = __REV16(bound & 0xFFFF);
+	F_Trans(cm_ptr, 16, mpp_ptr->ctrl.id, 0, 2, data);
+}
+
 void MPP_arch_count_offset_get(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr)
 {
 	uint8_t in_data[8];
@@ -104,10 +122,21 @@ void MPP_struct_get(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr)
 {
 	uint8_t i, in_data[64];
 	uint8_t forced_start_flag = 1;
+	typeMPPRec rec[2];
+	
 	if (F_Trans(cm_ptr, 3, mpp_ptr->ctrl.id, 7, 26, (uint16_t*)in_data) == 1) { //вычитываем две структуры
+		// сохраняем полученные структуры в свои переменные, но отбрасываем номер канала
+		memcpy((uint8_t*)&rec[0], in_data+2, sizeof(typeMPPRec));
+		memcpy((uint8_t*)&rec[1], in_data+2+24+2, sizeof(typeMPPRec));
+		// приводим порядок байт к используемому в МК
+		_mpp_struct_rev(&rec[0]);
+		_mpp_struct_rev(&rec[1]);
 		for (i=0; i<2; i++){ 
-			if((mpp_ptr->frame.mpp_rec[i].AcqTime_s != 0) || (mpp_ptr->frame.mpp_rec[i].AcqTime_us != 0)){ // проверяем есть ли измерение в прочитанных данных
-				forced_start_flag = 0;
+			if((rec[i].AcqTime_s != 0) || (rec[i].AcqTime_us != 0)){ // проверяем есть ли измерение в прочитанных данных
+				forced_start_flag = 0; //отменяем принудительный запуск, так как  была получена структура помехи
+				//
+				mpp_ptr->frame.mpp_rec[mpp_ptr->ctrl.frame_pulse_cnt] = rec[i];  // копируем структуру, так как она не пустая
+				//
 				mpp_ptr->ctrl.frame_pulse_cnt += 1;
 				if (mpp_ptr->ctrl.frame_pulse_cnt >= 2){ //в кадре уже 2 помехи
 					mpp_ptr->ctrl.frame_pulse_cnt = 0;
@@ -115,8 +144,8 @@ void MPP_struct_get(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr)
 				}
 				else{  //кадр не полностью заполнен помехами
 				}
-				memcpy(&mpp_ptr->frame.mpp_rec[mpp_ptr->ctrl.frame_pulse_cnt], in_data+2+26*i, sizeof(typeMPPRec));
-				_mpp_struct_rev(&mpp_ptr->frame.mpp_rec[mpp_ptr->ctrl.frame_pulse_cnt]);
+				//
+
 			} 
 		}
 	}
@@ -130,7 +159,7 @@ void MPP_Frame_Init(typeMPPDevice *mpp_ptr)
 	memset(&mpp_ptr->frame, 0xFEFE, sizeof(typeMPPFrame));
 	mpp_ptr->frame.label = 0x0FF1;
 	mpp_ptr->frame.definer = mpp_ptr->ctrl.frame_definer;
-	mpp_ptr->frame.time = Get_Time_s();
+	mpp_ptr->frame.time = _rev_u32(Get_Time_s());
 	mpp_ptr->frame.crc16 = crc16_ccitt((uint8_t*)&mpp_ptr->frame, 62);
 	memcpy((uint8_t *)frame, (uint8_t *)(&mpp_ptr->frame), sizeof(typeMPPFrame));
 	//
@@ -143,7 +172,7 @@ void MPP_Frame_Build(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr)
 	mpp_ptr->frame.label = 0x0FF1;
 	mpp_ptr->frame.definer = mpp_ptr->ctrl.frame_definer;
 	mpp_ptr->frame.num = cm_ptr->frame_number;
-	mpp_ptr->frame.time = Get_Time_s();
+	mpp_ptr->frame.time = _rev_u32(Get_Time_s());
 	mpp_ptr->frame.crc16 = crc16_ccitt((uint8_t*)&mpp_ptr->frame, 62);
 	cm_ptr->frame_number += 1;
 	memcpy((uint8_t *)frame, (uint8_t *)(&mpp_ptr->frame), sizeof(typeMPPFrame));

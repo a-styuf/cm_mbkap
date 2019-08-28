@@ -32,8 +32,9 @@
 #define DNT_BOUND 3*31
 #define ADII_BOUND 3*125
 // настройки МПП
-#define MPP27_DEF_OFFSET 0  // уровень срабатывания МПП27
+#define MPP27_DEF_OFFSET 0 // уровень срабатывания МПП27
 #define MPP100_DEF_OFFSET 0  // уровень срабатывания МПП100
+#define MPP100_DEF_BOUND 1500  // уровень срабатывания МПП100 при котором происходит отключение реле питания
 // таймаут для определения неответа для внутренней шины
 #define UART_TIMEOUT_MS 6
 // номера кадров для МКО/МПИ
@@ -54,8 +55,9 @@
 #define MPP100_ID 3
 #define DIR_ID 4
 // параметры переферийных устройств
-#define DNT_MKO_ADDR 22
+#define DNT_MKO_ADDR 19
 #define DNT_DEV_NUM 2  // тип аппаратуры: мелкосерийный ДНТ (определяет Игорь Щепихин)
+#define DNT_DEV_FRAME_NUM 0
 #define DNT_MKO_ZAV_NUM 5
 // параметры защищенной области
 #define DEFEND_VOLUME 100 //в кадрах

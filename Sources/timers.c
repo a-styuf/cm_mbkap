@@ -131,10 +131,9 @@ void Time_Set(uint64_t time, int16_t* diff_time_s, int8_t* diff_time_low) // tim
     cm_time.zero_part = 0x0000;
     //
     memcpy((uint8_t*)&current_time, (uint8_t*)&cm_time, 8);
-    
     diff_time = time - current_time;
     //сохраняем системные данные связанные с синхронизацией
-    *diff_time_s = ((diff_time >> 32) & 0xFFFF) + (diff_time  & 0xFFFF0000);
+    *diff_time_s = (diff_time  >> 16) & 0xFFFF;
     *diff_time_low = (diff_time >> 8) & 0xFF;
     //сохраняем системные данные связанные с синхронизацией
     MDR_TMR2->CNT = (time >> 8) & 0xFFFFFFFF;
@@ -148,7 +147,7 @@ uint32_t Get_Time_s(void) // получаем время от таймера, а
     uint32_t time_s = 0, time_s_old = 0;
     time_s_old = MDR_TMR2->CNT;
     time_s = ((uint64_t)high_byte_time_s << 24) + ((time_s_old >> 8) & 0xFFFFFF);
-    return ((time_s >> 16) & 0xFFFF) + ((time_s & 0xFFFF) << 16); // переставляем по 16 бит для заполнения поля времени кадров
+    return time_s; // переставляем по 16 бит для заполнения поля времени кадров
 }
 
 void Get_Time_sec_parts(uint32_t* sec, uint8_t* parts) // получение полного времени
@@ -156,12 +155,12 @@ void Get_Time_sec_parts(uint32_t* sec, uint8_t* parts) // получение п�
     uint32_t time_s_old = 0, time_s = 0;
 	
     time_s_old = MDR_TMR2->CNT;
-	time_s = ((uint32_t)high_byte_time_s << 24) + ((time_s_old >> 8) & 0xFFFFFF); // переставляем по 16 бит для заполнения поля времени кадров
-    *sec = ((time_s >> 16) & 0xFFFF) + ((time_s & 0xFFFF) << 16);
+	time_s = ((uint32_t)high_byte_time_s << 24) + ((time_s_old >> 8) & 0xFFFFFF); 
+    *sec = time_s;
     *parts = time_s_old & 0xFF;
 }
 
-// работа с интервалами на основе реального времени
+// работа с интервалами на основе реального времени - недоделано и пока не используется
 void SetInterval(uint16_t interval) //фиксируем запуск ожидания конца указанного интервала
 {
     interval_start_time = Get_Time_s();
