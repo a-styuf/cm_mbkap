@@ -1,6 +1,6 @@
 #include "power_management.h"
 
-extern uint16_t ADCData[7];
+extern uint16_t ADCData[ADC0_CHAN_NUM];
 
 //функции для формирования системных данных
 uint8_t Get_Modules_Current(uint16_t *currents, uint16_t *pwr_bounds)
@@ -25,6 +25,13 @@ uint8_t Get_Modules_Current(uint16_t *currents, uint16_t *pwr_bounds)
         if ((currents[i] > pwr_bounds[i]) && (pwr_bounds[i] != 0)) status |= (1 << i);
     }
     return status;
+}
+
+int16_t Get_MCU_Temp(void)
+{
+	float temp_fp;
+	temp_fp = ((-ADCData[ADC0_CHAN_NUM-1] + FACTORY_ADC_TEMP25)/FACTORY_ADC_AVG_SLOPE + FACTORY_TEMP25)*256.;
+	return (int16_t)(floor(temp_fp));
 }
 
 void Pwr_On_All_Devices(void) 

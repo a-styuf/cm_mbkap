@@ -37,7 +37,7 @@ void UART0_Init() {
 
 void UART0_SendPacket(uint8_t *buff, uint8_t leng, uint8_t en_crc_flg) {
   uint8_t i;
-  MDR_UART0->CR &= ~(1<<9);  //çàïðåò ïðèåìà
+  MDR_UART0->CR &= ~(1<<9);  //Ã§Ã Ã¯Ã°Ã¥Ã² Ã¯Ã°Ã¨Ã¥Ã¬Ã 
   if(en_crc_flg) {
     CRC16 = (uint16_t)-1;
     GetCRC(buff, leng);
@@ -54,7 +54,7 @@ void UART0_SendPacket(uint8_t *buff, uint8_t leng, uint8_t en_crc_flg) {
     MDR_UART0->DR = *((uint8_t*)&CRC16);
     }
   while(MDR_UART0->FR & (1<<3));  //wait for Busy
-  MDR_UART0->CR |= (1<<9);  //âíîâü ðàçðåøåíèå ïðèåìà
+  MDR_UART0->CR |= (1<<9);  //Ã¢Ã­Ã®Ã¢Ã¼ Ã°Ã Ã§Ã°Ã¥Ã¸Ã¥Ã­Ã¨Ã¥ Ã¯Ã°Ã¨Ã¥Ã¬Ã 
 }
 
 int8_t UART0_PacketInWaitingOrReady(void)
@@ -69,7 +69,7 @@ int8_t UART0_PacketInWaitingOrReady(void)
 
 int8_t UART0_GetPacket(uint8_t *buff, uint8_t *leng) {
   NVIC_DisableIRQ(IRQn_UART0); //
-  if((Rx0BuffPtr)&&(MDR_TMR3->STATUS & (1<<1))) {  //åñòü ÷òî-òî â áóôåðå è ïðåâûøåí ìåæñèìâîëüíûé èíòåðâàë
+  if((Rx0BuffPtr)&&(MDR_TMR3->STATUS & (1<<1))) {  //Ã¥Ã±Ã²Ã¼ Ã·Ã²Ã®-Ã²Ã® Ã¢ Ã¡Ã³Ã´Ã¥Ã°Ã¥ Ã¨ Ã¯Ã°Ã¥Ã¢Ã»Ã¸Ã¥Ã­ Ã¬Ã¥Ã¦Ã±Ã¨Ã¬Ã¢Ã®Ã«Ã¼Ã­Ã»Ã© Ã¨Ã­Ã²Ã¥Ã°Ã¢Ã Ã«
     *leng = Rx0BuffPtr;
     Rx0BuffPtr = 0;
     memcpy(buff, Rx0Buff, *leng);
@@ -91,7 +91,7 @@ int8_t UART0_GetPacket(uint8_t *buff, uint8_t *leng) {
 
 void INT_UART0_Handler(void) {
   uint8_t rxb;
-  if(MDR_UART0->RIS & (1<<4)) {  //ïðåðûâàíèå ïî Rx
+  if(MDR_UART0->RIS & (1<<4)) {  //Ã¯Ã°Ã¥Ã°Ã»Ã¢Ã Ã­Ã¨Ã¥ Ã¯Ã® Rx
     rxb = MDR_UART0->DR;
     if(MDR_TMR3->STATUS & (1<<1)) {  //timeout
       Rx0BuffPtr = 0;

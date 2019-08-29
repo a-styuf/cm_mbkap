@@ -36,7 +36,9 @@ typedef  struct // структура с кадром ДИР
 	//
     typeDIRData dir_data[2];   //+10 7-28
     //
-	uint8_t reserv[4]; //+58 29-30
+	uint16_t mode; //+58 29
+	//
+	uint8_t reserv[2]; //+60 30
 	//обязательная часть - контрольная сумма
     uint16_t crc16; //+62 31
 }typeDIRFrame;

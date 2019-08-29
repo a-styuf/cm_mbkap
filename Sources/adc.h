@@ -4,6 +4,7 @@
 
 #define IRQn_ADC0 (IRQn_Type)119
 
+#define ADC0_CHAN_NUM 24
 
 void ADC_Init(void);
 

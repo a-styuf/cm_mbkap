@@ -44,7 +44,13 @@ void DIR_constatnt_mode(uint8_t mode)  // широковещательная; mo
 void DIR_Start_Measurement(typeDIRDevice *dir_ptr, typeCMParameters* cm_ptr) //измрение идет долго, предлагается забирать старые при запуске ДИР. В итоге будет задержка в один изм. интервал
 {
 	uint16_t data[8];
-	data[0] = dir_ptr->ctrl.mode;
+	if (dir_ptr->ctrl.mode <= 2){ //значения валидные
+		data[0] = dir_ptr->ctrl.mode;
+	}
+	else{  //значение не валидное - скидываем на 0
+		dir_ptr->ctrl.mode = 0x01;
+		data[0] = 0x01;
+	}
 	F_Trans(cm_ptr, 6, dir_ptr->ctrl.id, 0, NULL, data);
 }
 
@@ -55,6 +61,7 @@ void DIR_Data_Get(typeDIRDevice *dir_ptr, typeCMParameters* cm_ptr)
 		dir_ptr->ctrl.meas_num += 1;
 		if (dir_ptr->ctrl.meas_num >= 2){ // если кадр уже заполнен - выкладываем на ПА и в ЗУ
 			dir_ptr->ctrl.meas_num = 0;
+			dir_ptr->frame.mode = dir_ptr->ctrl.mode;
 			DIR_Frame_Build(dir_ptr, cm_ptr);
 		}
 		memcpy(&dir_ptr->frame.dir_data[dir_ptr->ctrl.meas_num], in_data, sizeof(typeDIRData));
@@ -94,11 +101,11 @@ void _dir_struct_rev(typeDIRData* dir_struct_ptr)
 {  
     uint16_t data[32];
     uint8_t i = 0;
-    memcpy((uint8_t *)data, (uint8_t *)dir_struct_ptr, sizeof(typeDIRRecord));
-    for (i=0; i<(sizeof(typeDIRRecord)/2); i++) {
+    memcpy((uint8_t *)data, (uint8_t *)dir_struct_ptr, sizeof(typeDIRData));
+    for (i=0; i<(sizeof(typeDIRData)/2); i++) {
         data[i] = __REV16(data[i]);
     }
-    memcpy((uint8_t *)dir_struct_ptr, (uint8_t *)data, sizeof(typeDIRRecord));
+    memcpy((uint8_t *)dir_struct_ptr, (uint8_t *)data, sizeof(typeDIRData));
 }
 
 /*** ДНТ: работает через ДИР ***/ 
@@ -147,7 +154,7 @@ void DNT_MKO_Read_Finish(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr)
 	//перекладываем данные в структуру с подадресом, формируемым ДНТ
 	memcpy((uint8_t*)&dnt_ptr->dev_frame, (uint8_t *) &dnt_ptr->ctrl.mko.packet.Data[1], 64);
 	// вяческие проверки
-	if ((dnt_ptr->ctrl.mko.Run) || (dnt_ptr->ctrl.mko.BSIStat & 0x1000)){  //ошибка транзакции МКО в ДИР
+	if ((dnt_ptr->ctrl.mko.Run) || (dnt_ptr->ctrl.mko.BSIStat & 0x8000)){  //ошибка транзакции МКО в ДИР
 		cm_ptr->bus_nans_cnt += 1;
 		cm_ptr->bus_nans_status |= 1<<5;
 	}
@@ -215,18 +222,15 @@ void DNT_MKO_Measure_Finish(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr)
 {
 	// Читаем данные из ДИР из структуры управления МКО
 	F_Trans(cm_ptr, 3, dnt_ptr->ctrl.dir_id,  0x0100, sizeof(typeDIRMKOData)/2, (uint16_t*)&dnt_ptr->ctrl.mko);
+	_dir_mko_data_struct_rev(&dnt_ptr->ctrl.mko);
 	// вяческие проверки
-	if ((dnt_ptr->ctrl.mko.Run) || (dnt_ptr->ctrl.mko.BSIStat & 0x1000)){  //ошибка транзакции МКО в ДИР
+	if ((dnt_ptr->ctrl.mko.Run) || (dnt_ptr->ctrl.mko.BSIStat & 0x8000)){  //ошибка транзакции МКО в ДИР
 		cm_ptr->bus_nans_cnt += 1;
 		cm_ptr->bus_nans_status |= 1<<5;
 	}
 	else if ((dnt_ptr->ctrl.mko.packet.Data[32]  & 0xF800) != (dnt_ptr->ctrl.mko.packet.CmdWord & 0xF800)){ //проверка совпадения адресов МКО в КС и ОС
 		cm_ptr->bus_nans_cnt += 1;
 		cm_ptr->bus_nans_status |= 1<<5;
-	}
-	else if (dnt_ptr->ctrl.mko.packet.Data[6] & 0x2){ // проверка на окончание измерения при единичном запуске
-		cm_ptr->bus_error_cnt += 1;
-		cm_ptr->bus_error_status |= 1<<5;
 	}
 }
 

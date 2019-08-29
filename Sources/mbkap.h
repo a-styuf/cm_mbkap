@@ -14,7 +14,7 @@
 
 //***Параметры программы для ЦМ МБКАП
 // номер устройства
-#define DEV_NUM 0 //todo: уточнить номер устройства у Игоря
+#define DEV_NUM 206 //todo: уточнить номер устройства у Игоря
 // параметры МКО
 #define MKO_ID  22
 // времянные параметры интервалов и слотов
@@ -34,7 +34,7 @@
 // настройки МПП
 #define MPP27_DEF_OFFSET 0 // уровень срабатывания МПП27
 #define MPP100_DEF_OFFSET 0  // уровень срабатывания МПП100
-#define MPP100_DEF_BOUND 1500  // уровень срабатывания МПП100 при котором происходит отключение реле питания
+#define MPP100_DEF_BOUND 0  // уровень срабатывания МПП100 при котором происходит отключение реле питания
 // таймаут для определения неответа для внутренней шины
 #define UART_TIMEOUT_MS 6
 // номера кадров для МКО/МПИ
@@ -97,7 +97,7 @@ typedef struct // ситстемный кадр
     uint8_t bus_nans_status; //+44 22
     uint8_t bus_error_status; //+45 22
     //
-    int16_t temp; //+46 23
+    int16_t temperature; //+46 23
     //
     uint32_t operating_time; //+48 24-25
     //
@@ -158,10 +158,13 @@ typedef struct // параетры ЦМ для управления и сохр�
 	uint8_t adii_fk; //+75
 	uint16_t adii_interval; //+76
 	//
-	uint8_t defend_mem; //+78
+	uint8_t defend_mem; //+78 // если 1 - запись остановлена, т.к. указатель чтения достиг защищенную область (указатель записи - размер защищенной области)
 	uint8_t debug; //+79
 	//
-    uint8_t reserved[46];//+80
+	uint16_t additional_sys_frame_flags; //+80 //каждый бит соответствует определенному событиию, по которому сгенерировался дополнительный кадр
+	int16_t temperature; //+82
+	//
+    uint8_t reserved[42];//+84
     uint16_t crc16; //+126
 }typeCMParameters;
 
@@ -193,15 +196,18 @@ int8_t _read_cm_parameters_frame_with_crc16_check(uint16_t addr, uint8_t* frame)
 // функции для работы со структурой управления ЦМ typeCMParameters
 void CM_Parame_Full_Init(typeCMParameters* cm_ptr);  // функция инициализации структуры, зануляет все кроме наработки
 void _cm_params_set_default(typeCMParameters* cm_ptr);
-void CM_Parame_Start_Init(typeCMParameters* cm_ptr);  // функция инициализации структуры, зануляет все, что нет необходимости хранить
+void CM_Parame_Start_Init(typeCMParameters* cm_ptr, typeCMParameters* cm_old_ptr);  // функция инициализации структуры, зануляет все, что нет необходимости хранить
 void CM_Parame_Command_Init(typeCMParameters* cm_ptr);  // функция инициализации структуры по командному сообщению, зануляет все
 void CM_Parame_Operating_Time_Init(uint32_t op_time, typeCMParameters* cm_ptr); //функция, которая устанавливает наработку
+uint8_t CM_Parame_Comparison(typeCMParameters* cm_ptr, typeCMParameters* cm_old_ptr); //сравнивает новую и старую структуру с параметрами ЦМ, выдавая результат в  виде флагов несовпадения
 void CM_Parameters_Write(typeCMParameters* parameters);
 int8_t CM_Parameters_Read(typeCMParameters* parameters);
 // общие функции для работы с кадрами
 uint16_t _frame_definer(uint8_t frame_modification, uint16_t device_number,  uint16_t fabrication_num, uint8_t frame_type);
 // формирование системного кадра
 void Sys_Frame_Init(typeSysFrames *sys_frame); //инициализируются известные поля для системного кадра и выкладывается на подадрес
+void Sys_Frames_Additional_Build(typeSysFrames *sys_frame, typeCMParameters* cm_ptr, typeCMParameters* cm_old_ptr);
+void Sys_Frames_Interval_Build(typeSysFrames *sys_frame, typeCMParameters* cm_ptr);
 void Sys_Frame_Build(typeSysFrames *sys_frame, typeCMParameters* cm_ptr);
 // работа с МКО
 uint8_t get_mko_addr(uint8_t def_addr);

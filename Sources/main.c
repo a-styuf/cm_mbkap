@@ -17,7 +17,7 @@
 //Настройки программы в файле mbkap.c
 
 //
-extern typeCMParameters cm;
+extern typeCMParameters cm, cm_old;
 extern typeSysFrames sys_frame;
 extern typeSTMstruct stm;
 // Структуры для управления периферией
@@ -52,7 +52,7 @@ int main() {
 	Timers_Init();
 	Init_STM(&stm, &cm);
 	// инициализация структур управления ЦМ
-	CM_Parame_Start_Init(&cm);
+	CM_Parame_Start_Init(&cm, &cm_old);
 	Sys_Frame_Init(&sys_frame);
 	//включение питания всей периферии  !!!важно - следить за тем, что бы модули включались не противореча параметру cm.pwr_state !!!todo: будет время - переделать на параметризованное включение
 	Pereph_On_and_Get_ID_Frame(2, &mpp27_init_inf);
@@ -83,6 +83,8 @@ int main() {
 				cm_param_count = 0;
 				// работа с потреблением
 				Pwr_current_process(&cm);
+				//
+				cm.temperature = Get_MCU_Temp();
 				//работа со временем ЦМ
                 cm.operating_time += CM_PARAM_SAVE_PERIOD_S; //todo: возможная проблема - расхождения времени и времени наработки из-за пропусков секундных интервалов
                 cm.time = Get_Time_s();
@@ -98,8 +100,11 @@ int main() {
             {
 				sys_frame_count = 0;
 				//
-                Sys_Frame_Build(&sys_frame, &cm);
+                Sys_Frames_Interval_Build(&sys_frame, &cm);
             }
+			else{
+				Sys_Frames_Additional_Build(&sys_frame, &cm, &cm_old);
+			}
 			//***формирование флагов на запуск измерений по измерительному интервалу
 			meas_interv_count += 1;
 			if (meas_interv_count >= cm.measure_interval*10) 
@@ -250,7 +255,10 @@ int main() {
 					Set_Pwr_State(&cm.pwr_state, &cm.pwr_status, mko_dev.data[1] & 0xFF, mko_dev.data[2] & 0x01);
 				}
 				else if (mko_dev.data[0] == 0x000C) {  // управление порогом отключения МБКАП по МПП100
-					//
+					MPP_Pwr_Off_Bound_Set(&mpp100, mko_dev.data[1], &cm);
+				}
+				else if (mko_dev.data[0] == 0x000D) {  // управление напряжением работы ДИР
+					dnt.ctrl.mode = mko_dev.data[1];
 				}
 			}    
 			else if(mko_dev.subaddr == ARCH_FRAME_REQ_SA){  // обновление кадра на ПА из ЗУ ЦМ

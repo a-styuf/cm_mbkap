@@ -1,7 +1,7 @@
 #include "mbkap.h"
 
 // структуры для управления ЦМ
-typeCMParameters cm;
+typeCMParameters cm, cm_old;
 typeSysFrames sys_frame;
 
 //общие переменные
@@ -148,6 +148,7 @@ void _cm_params_set_default(typeCMParameters* cm_ptr)
 	cm_ptr->label = 0x0FF1; 
 	cm_ptr->time = 0x00000000;
 	cm_ptr->bus_error_cnt = 0x00;
+	cm_ptr->bus_error_status = 0x00;
 	cm_ptr->bus_nans_cnt = 0x00;
 	cm_ptr->bus_nans_status = 0x00;
 	cm_ptr->pwr_status = 0x00;
@@ -161,6 +162,7 @@ void _cm_params_set_default(typeCMParameters* cm_ptr)
 	cm_ptr->adii_mode = 0;
 	cm_ptr->adii_fk = 0xFF;
 	cm_ptr->debug = 0x00;
+	cm_ptr->additional_sys_frame_flags = 0x00; 
 	//
 	cm_ptr->pwr_bounds[0] = 0; //МБКАП - не проверяем по току
 	cm_ptr->pwr_bounds[1] = CM_BOUND;
@@ -177,7 +179,7 @@ void _cm_params_set_default(typeCMParameters* cm_ptr)
 	cm_ptr->adii_interval = DEFAULT_ADII_INTERVAL_S;
 }
 
-void CM_Parame_Start_Init(typeCMParameters* cm_ptr) //функция инициализации структуры, зануляет все, что нет необходимости хранить
+void CM_Parame_Start_Init(typeCMParameters* cm_ptr, typeCMParameters* cm_old_ptr) //функция инициализации структуры, зануляет все, что нет необходимости хранить
 {
 	Read_Parameters(cm_ptr);
 	//
@@ -188,6 +190,7 @@ void CM_Parame_Start_Init(typeCMParameters* cm_ptr) //функция иници�
 		_cm_params_set_default(cm_ptr);
 		cm_ptr->rst_cnt += 1; // увеличиваем счетчик включений ЦМ БЭ Луна
 	}
+	*cm_old_ptr = *cm_ptr;
 }
 
 void CM_Parame_Command_Init(typeCMParameters* cm_ptr) //функция инициализации структуры по командному сообщению, зануляет все
@@ -200,6 +203,29 @@ void CM_Parame_Command_Init(typeCMParameters* cm_ptr) //функция иниц�
 void CM_Parame_Operating_Time_Init(uint32_t op_time, typeCMParameters* cm_ptr) //функция, которая устанавливает наработку
 {
     cm_ptr->operating_time = op_time;
+}
+
+uint8_t CM_Parame_Comparison(typeCMParameters* cm_ptr, typeCMParameters* cm_old_ptr) //сравнивает новую и старую структуру с параметрами ЦМ, выдавая результат в  виде флагов несовпадения
+{
+	uint16_t cm_parame_flalgs = 0;
+	cm_parame_flalgs = cm_ptr-> additional_sys_frame_flags;
+	// проверяем только интересующие нас параметры
+	if (cm_ptr->pwr_state != cm_old_ptr->pwr_state) cm_parame_flalgs |= (1<<0);
+	if (cm_ptr->pwr_status != cm_old_ptr->pwr_status) cm_parame_flalgs |= (1<<1);
+	if (cm_ptr->bus_error_cnt != cm_old_ptr->bus_error_cnt) cm_parame_flalgs |= (1<<2);
+	if (cm_ptr->bus_nans_cnt != cm_old_ptr->bus_nans_cnt) cm_parame_flalgs |= (1<<3);
+	if (cm_ptr->mko_error_cnt != cm_old_ptr->mko_error_cnt) cm_parame_flalgs |= (1<<4);
+	if (cm_ptr->adii_fk != cm_old_ptr->adii_fk) cm_parame_flalgs |= (1<<5);
+	if (cm_ptr->defend_mem != cm_old_ptr->defend_mem) cm_parame_flalgs |= (1<<6);
+	//сохраняем новое значе
+	if (cm_ptr-> additional_sys_frame_flags != cm_parame_flalgs) {
+		cm_ptr-> additional_sys_frame_flags = cm_parame_flalgs;
+		*cm_old_ptr = *cm_ptr;
+		return 1;
+	}
+	else{
+		return 0;
+	}
 }
 
 // общие функции для работы с кадрами
@@ -237,6 +263,19 @@ void Sys_Frame_Init(typeSysFrames *sys_frame) //инициализируются
     Write_to_SubAddr(SYS_FRAME_NUM, frame);
 }
 
+void Sys_Frames_Additional_Build(typeSysFrames *sys_frame, typeCMParameters* cm_ptr, typeCMParameters* cm_old_ptr)
+{
+	if (CM_Parame_Comparison(cm_ptr, cm_old_ptr)) {
+		Sys_Frame_Build(sys_frame, cm_ptr);
+	}
+}
+
+void Sys_Frames_Interval_Build(typeSysFrames *sys_frame, typeCMParameters* cm_ptr)
+{
+	cm_ptr->additional_sys_frame_flags = 0x00; //сбрасываем флаги дополнительного формирования системного кадра, т.к. закончился измерительный интервал
+	Sys_Frame_Build(sys_frame, cm_ptr);
+}
+
 void Sys_Frame_Build(typeSysFrames *sys_frame, typeCMParameters* cm_ptr)
 {
 	uint16_t frame[32] = {0};
@@ -264,7 +303,7 @@ void Sys_Frame_Build(typeSysFrames *sys_frame, typeCMParameters* cm_ptr)
     sys_frame->bus_error_status = cm_ptr->bus_error_status;
     sys_frame->bus_error_cnt = cm_ptr->bus_error_cnt;
 	sys_frame->bus_error_cnt = cm_ptr->bus_error_cnt;
-	sys_frame->temp = 0x00; //todo: добавить температуру;
+	sys_frame->temperature = cm_ptr->temperature;
     sys_frame->operating_time = _rev_u32((uint32_t)cm_ptr->operating_time);
     sys_frame->measure_interval = cm_ptr->measure_interval;
     sys_frame->sys_interval = cm_ptr->sys_interval;

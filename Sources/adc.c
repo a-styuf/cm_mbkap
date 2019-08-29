@@ -1,10 +1,9 @@
 #include "1986ve8_lib/cm4ikmcu.h"
 #include "adc.h"
 
-
-uint16_t ADCData[7];
-uint16_t ADCDataSm[7];
-uint8_t ADCDataCnt[7];
+uint16_t ADCData[ADC0_CHAN_NUM];
+uint16_t ADCDataSm[ADC0_CHAN_NUM];
+uint8_t ADCDataCnt[ADC0_CHAN_NUM];
 
 
 void ADC_Init() {
@@ -33,10 +32,10 @@ void ADC_Init() {
   ADC0->FIFOEN1 = 0;
   ADC0->CONFIG1 = (ADC0->CONFIG1 & 0xFFFFF) | (sm << 20);
   /**/
-  for(i=0; i<7; i++) ADCDataCnt[i] = 0;
-  ADC0->CONFIG2 = 0x00009004;  //enable interrupt
-  ADC0->CHSEL0 =  0x0000007F;
-  ADC0->FIFOEN0 = 0x0000007F;
+  for(i=0; i<ADC0_CHAN_NUM; i++) ADCDataCnt[i] = 0;
+  ADC0->CONFIG2 = 0x01009004;  //enable interrupt, temp.sensor on
+  ADC0->CHSEL0 =  0x00FFFFFF; //0x0080007F;
+  ADC0->FIFOEN0 = 0x00FFFFFF; //0x0080007F;
   ADC0->CONFIG0 = 0x00000025;  //enable ADC0, SELMODE=1, continues mode
   NVIC_EnableIRQ(IRQn_ADC0);
 }
@@ -49,7 +48,7 @@ void INT_ADC0_Handler(void) {   //period ??? ms
     rslt = ADC0->RESULT;
     chn = *((uint16_t*)&rslt + 1);
     val = *((uint16_t*)&rslt);
-    if(chn < 7) {
+    if(chn < ADC0_CHAN_NUM) {
       ADCDataSm[chn] += val;
       ADCDataCnt[chn]++;
       if(ADCDataCnt[chn] >= 8) {
