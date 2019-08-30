@@ -43,7 +43,7 @@ uint64_t uint64_val;
 
 
 int main() {
-	uint16_t cm_param_count = 0, sys_frame_count = 0, meas_interv_count = 0, adii_interv_count = 0; //счетчики для отслеживанияинтервалов
+	uint8_t time_slot_count = 0; //счетчики для отслеживанияинтервалов
 	// инициализация переферии
 	System_Init();
 	MKO_Init(get_mko_addr(MKO_ID)); // установить 0 для работы только от адреса, задаваемого соединителем
@@ -76,104 +76,75 @@ int main() {
 		if (Timers_Status(0))
 		{   
 			Timers_Start(0, SLOT_TIME_MS); // перезапускаем таймер для формирования слота времени (возможная проблема - пропуск слота)
-			//***формирование и запись параметров в память для их использования в случае выключения питания
-            cm_param_count += 1;
-            if (cm_param_count >= CM_PARAM_SAVE_PERIOD_S*10)
-            {
-				cm_param_count = 0;
-				// работа с потреблением
-				Pwr_current_process(&cm);
-				//
-				cm.temperature = Get_MCU_Temp();
-				//работа со временем ЦМ
-                cm.operating_time += CM_PARAM_SAVE_PERIOD_S; //todo: возможная проблема - расхождения времени и времени наработки из-за пропусков секундных интервалов
-                cm.time = Get_Time_s();
-				//не забываем сохранять структуру в память
-                Write_Parameters(&cm);
-				//выставляем СТМ
-				stm.NKPBE = (GPIO_Get_CM_Id() != 0) ? 10: 0;
+			//формируем всевдо счетчик по 1 с
+			time_slot_count += 1;
+			if (time_slot_count >= 10){
+				time_slot_count = 0;
+				//***Обрабока СТМ
 				STM_1s_step(&stm, &cm);
-            }
-			//***формируем системный кадр
-            sys_frame_count += 1;  
-            if (sys_frame_count >= cm.sys_interval*10) 
-            {
-				sys_frame_count = 0;
-				//
-                Sys_Frames_Interval_Build(&sys_frame, &cm);
-            }
-			else{
-				Sys_Frames_Additional_Build(&sys_frame, &cm, &cm_old);
+				//***формирование и запись параметров в память для их использования в случае выключения питания
+				CM_Parame_Processor_1s(&cm);
+				//***формируем системный кадр
+				Sys_Frame_Processor_1s(&sys_frame, &cm, &cm_old);
+				// обрабока состояния ускоренного режима
+				Speed_Mode_Processor_1s(&cm);
+				//***формирование флагов на запуск измерений по измерительному интервалу
+				Measurment_Processor_1s(&cm);
+				//***формирование флагов на запуск измерений по измерительному интервалу ДИР
+				DIR_Meas_Processor_1s(&cm);
+				//***формирование флагов на запуск измерений по измерительному интервалу АДИИ
+				ADII_Meas_Processor_1s(&cm);
 			}
-			//***формирование флагов на запуск измерений по измерительному интервалу
-			meas_interv_count += 1;
-			if (meas_interv_count >= cm.measure_interval*10) 
-            {
-				meas_interv_count = 0;
-				//
-				cm.normal_mode_state = 	(1<<MPP27_FRAME_NUM)|
-															(1<<MPP100_FRAME_NUM)|
-															(1<<DIR_FRAME_NUM)|
-															(1<<DNT_FRAME_NUM);
-            }			
-			//***формирование флагов на запуск измерений по измерительному интервалу
-			adii_interv_count += 1;
-			if (adii_interv_count >= cm.adii_interval*10) 
-            {
-				adii_interv_count = 0;
-				//
-				cm.normal_mode_state = (1<<ADII_FRAME_NUM);
-            }			
 			//***обработка тайм слотов
-			switch(meas_interv_count%10){  //используя переменную meas_interval организуем 10 таймслотов по 100мс
+			switch(time_slot_count%10){  //используя переменную meas_interval организуем 10 таймслотов по 100мс
 				case 0:  // МПП: запрос 2х структур
-					if (cm.normal_mode_state & (0x1 << MPP27_FRAME_NUM)) MPP_struct_request(&mpp27, &cm);
-					if (cm.normal_mode_state & (0x1 << MPP100_FRAME_NUM)) MPP_struct_request(&mpp100, &cm);
+					if (cm.measure_state & (0x1 << MPP27_FRAME_NUM)) MPP_struct_request(&mpp27, &cm);
+					if (cm.measure_state & (0x1 << MPP100_FRAME_NUM)) MPP_struct_request(&mpp100, &cm);
 					break;
 				case 1:  // запрос количества помех в архиве и границы срабатывания
-					if (cm.normal_mode_state & (0x1 << MPP27_FRAME_NUM)) MPP_arch_count_offset_get(&mpp27, &cm);
-					if (cm.normal_mode_state & (0x1 << MPP100_FRAME_NUM)) MPP_arch_count_offset_get(&mpp100, &cm);
+					if (cm.measure_state & (0x1 << MPP27_FRAME_NUM)) MPP_arch_count_offset_get(&mpp27, &cm);
+					if (cm.measure_state & (0x1 << MPP100_FRAME_NUM)) MPP_arch_count_offset_get(&mpp100, &cm);
 					break;
 				case 2: // МПП: забор 2х структур 
-					if (cm.normal_mode_state & (0x1 << MPP27_FRAME_NUM)) {
+					if (cm.measure_state & (0x1 << MPP27_FRAME_NUM)) {
 						MPP_struct_get(&mpp27, &cm);
 					}
-					if (cm.normal_mode_state & (0x1 << MPP100_FRAME_NUM)) {
+					if (cm.measure_state & (0x1 << MPP100_FRAME_NUM)) {
 						MPP_struct_get(&mpp100, &cm);
 					}
-					cm.normal_mode_state &= ~((1<<MPP27_FRAME_NUM)|(1<<MPP100_FRAME_NUM));
+					cm.measure_state &= ~((1<<MPP27_FRAME_NUM)|(1<<MPP100_FRAME_NUM));
 					break;
 				case 3: // МПП: принудительный запуск при необходимости
 					MPP_forced_start(&mpp27, &cm);
 					MPP_forced_start(&mpp100, &cm);
 					break;
 				case 4:  // ДИР: чтение резуьтата и запуск измерения
-					if (cm.normal_mode_state & (0x1 << DIR_FRAME_NUM)) {
+					if (cm.measure_state & (0x1 << DIR_FRAME_NUM)) {
 						DIR_Data_Get(&dir, &cm);
 						DIR_Start_Measurement(&dir, &cm);
-						cm.normal_mode_state &= ~(1<<DIR_FRAME_NUM);
+						cm.measure_state &= ~(1<<DIR_FRAME_NUM);
 					}
 					break;
 				case 5: // ДНТ: чтение результата запроса запуска измерения и отправка запроса на чтение результата
-					if (cm.normal_mode_state & (0x1 << DNT_FRAME_NUM)){
+					if (cm.measure_state & (0x1 << DNT_FRAME_NUM)){
 						DNT_MKO_Measure_Finish(&dnt, &cm);
 						DNT_MKO_Read_Initiate(&dnt, &cm);
 					}
 					break;
 				case 6: // ДНТ: чтение результата запроса чтения результатов и отправка запроса на запуск измерения
-					if (cm.normal_mode_state & (0x1 << DNT_FRAME_NUM)){
+					if (cm.measure_state & (0x1 << DNT_FRAME_NUM)){
 						DNT_MKO_Read_Finish(&dnt, &cm);
 						DNT_MKO_Measure_Initiate(&dnt, &cm);
 						//
-						cm.normal_mode_state &= ~(1<<DNT_FRAME_NUM);
+						cm.measure_state &= ~(1<<DNT_FRAME_NUM);
 					}
 					break;
 				case 7: // АДИИ: 
-					if (cm.normal_mode_state & (0x1 << ADII_FRAME_NUM)){
+					if (cm.measure_state & (0x1 << ADII_FRAME_NUM)){
 						ADII_Read_Data(&adii, &cm);
 						ADII_Meas_Start(&adii, &cm);  //управление командой происходит переменной adii.ctrl.mode: 1 - режим тестирования, 0 - нормальный режим
 						//
-						cm.normal_mode_state &= ~(1<<ADII_FRAME_NUM);
+						cm.measure_state &= ~(1<<ADII_FRAME_NUM);
 					}
 					break;
 				case 8:
@@ -254,10 +225,16 @@ int main() {
 				else if (mko_dev.data[0] == 0x000A) {  // установка состояния питания модулей
 					Set_Pwr_State(&cm.pwr_state, &cm.pwr_status, mko_dev.data[1] & 0xFF, mko_dev.data[2] & 0x01);
 				}
+				else if (mko_dev.data[0] == 0x000A) {  // запуск ускоренного режима
+					Set_Speedy_Mode(&cm, mko_dev.data[1], mko_dev.data[2], mko_dev.data[2]);
+				}
 				else if (mko_dev.data[0] == 0x000C) {  // управление порогом отключения МБКАП по МПП100
 					MPP_Pwr_Off_Bound_Set(&mpp100, mko_dev.data[1], &cm);
 				}
 				else if (mko_dev.data[0] == 0x000D) {  // управление напряжением работы ДИР
+					dnt.ctrl.mode = mko_dev.data[1];
+				}
+				else if (mko_dev.data[0] == 0x000D) {  // ускоренный режим
 					dnt.ctrl.mode = mko_dev.data[1];
 				}
 			}    

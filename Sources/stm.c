@@ -1,5 +1,4 @@
 #include "stm.h"
-#include "gpio.h"
 
 typeSTMstruct stm;
 
@@ -14,6 +13,8 @@ void Init_STM(typeSTMstruct* stm_ptr, typeCMParameters *cm_ptr)
 
 void STM_1s_step(typeSTMstruct* stm_ptr, typeCMParameters *cm_ptr)
 {
+	stm_ptr->NKPBE = (GPIO_Get_CM_Id() != 0) ? 10: 0;
+	//
 	if (stm_ptr->block == 0){ // изменение состояния stm в случае отсутствия блокировки
 		if (stm_ptr->NKPBE != 0) {
 			stm_ptr->NKPBE += ((stm_ptr->NKPBE < 0) ? 1 : -1); 

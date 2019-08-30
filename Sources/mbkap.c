@@ -173,10 +173,18 @@ void _cm_params_set_default(typeCMParameters* cm_ptr)
 	cm_ptr->pwr_bounds[6] = ADII_BOUND;
 	cm_ptr->pwr_state = 0x7F; // все шесть модулей включены
 	cm_ptr->pwr_status = 0x00; // все шесть модулей включены
-	//
+	// устанавливаем интервал измерения
 	cm_ptr->measure_interval = DEFAULT_MEAS_INTERVAL_S;
 	cm_ptr->sys_interval = DEFAULT_SYS_INTERVAL_S;
 	cm_ptr->adii_interval = DEFAULT_ADII_INTERVAL_S;
+	cm_ptr->parame_interval = CM_PARAM_SAVE_PERIOD_S;
+	cm_ptr->dir_interval = DEFAULT_DIR_INTERVAL_S;
+	// устанавливаем таймауты для того, что бы не пропустить первый интервал
+	cm_ptr->measure_timeout = DEFAULT_MEAS_INTERVAL_S;
+	cm_ptr->sys_timeout = DEFAULT_SYS_INTERVAL_S;
+	cm_ptr->adii_timeout = DEFAULT_ADII_INTERVAL_S;
+	cm_ptr->parame_timeout = CM_PARAM_SAVE_PERIOD_S;
+	cm_ptr->dir_timeout = DEFAULT_DIR_INTERVAL_S;
 }
 
 void CM_Parame_Start_Init(typeCMParameters* cm_ptr, typeCMParameters* cm_old_ptr) //функция инициализации структуры, зануляет все, что нет необходимости хранить
@@ -226,6 +234,125 @@ uint8_t CM_Parame_Comparison(typeCMParameters* cm_ptr, typeCMParameters* cm_old_
 	else{
 		return 0;
 	}
+}
+
+uint8_t CM_Parame_Processor_1s(typeCMParameters* cm_ptr) //проверка и обработка параметров МБКАП с последующим сохранением
+{
+	cm_ptr->parame_timeout -= 1;
+	if (cm_ptr->parame_timeout == 0) {
+		Pwr_current_process(&cm); // работа с потреблением
+		cm_ptr->temperature = Get_MCU_Temp(); // получение температуры
+		//работа со временем ЦМ
+		cm_ptr->operating_time += cm_ptr->parame_interval; //todo: возможная проблема - расхождения времени и времени наработки из-за пропусков секундных интервалов
+		cm_ptr->time = Get_Time_s();
+		//не забываем сохранять структуру в память
+		Write_Parameters(&cm);
+		//
+		cm_ptr->parame_timeout = cm_ptr->parame_interval;
+		return 1;
+	}
+	else if (cm_ptr->parame_timeout > cm_ptr->parame_interval) { //проверка на неправльное значение timeout
+		cm_ptr->parame_timeout = cm_ptr->parame_interval;
+	}
+	else{
+		//
+	}
+	return 0;
+}
+//работа с измерительным интервалом и ускоренным режимом
+uint16_t Set_Speedy_Mode(typeCMParameters* cm_ptr, uint16_t on, uint16_t state, uint16_t speedy_mode_time)
+{
+	if(on&0x0001){  //включение ускоренного режима
+		// разбираемся со временем работы ускоренного режима
+		if (speedy_mode_time)  cm_ptr->speed_mode_timeout = get_val_from_bound(speedy_mode_time, 10, 7200);
+		else  cm_ptr->speed_mode_timeout = DEFAULT_SPEEDY_MODE_TIME_S;
+		// разбираемся с типами кадров для запускаем
+		cm_ptr->speed_mode_state =  state & 0x000B; //зануляем неинтересующие нас поля
+		return 1;
+	}
+	else{  //отключение ускоренного режима
+		cm_ptr->speed_mode_timeout = 0;
+		cm_ptr->speed_mode_state =  0;
+		return 0;
+	}
+}
+
+uint8_t Speed_Mode_Processor_1s(typeCMParameters* cm_ptr)
+{
+	if (cm_ptr->speed_mode_timeout) {
+		cm_ptr->speed_mode_timeout -= 1;
+		return 1;
+	}
+	else{
+		cm_ptr->speed_mode_timeout = 0;
+		cm_ptr->speed_mode_state =  0;
+		return 0;
+	}
+}
+
+uint8_t Measurment_Processor_1s(typeCMParameters* cm_ptr) //включаем структуру ДНТ, т.к. ускоренный режим ДНТ отличается от обычного
+{
+	//обработка интервалов
+	cm_ptr->measure_timeout -= 1;
+	if (cm_ptr->measure_timeout == 0) {
+		cm_ptr->measure_timeout = cm_ptr->measure_interval;
+		cm_ptr->measure_state = 	(1<<MPP27_FRAME_NUM)|
+													(1<<MPP100_FRAME_NUM)|
+													(1<<DNT_FRAME_NUM);
+	}
+	else if (cm_ptr->measure_timeout > cm_ptr->measure_interval) { //проверка на неправльное значение timeout
+		cm_ptr->measure_timeout = cm_ptr->measure_interval;
+	}
+	else{
+		//
+	}
+	//обрабока флагов запросов при ускоренном режиме
+	if (cm_ptr->speed_mode_timeout){ //наивыскший приоритет у ускоренного режима
+		cm_ptr->measure_timeout = cm_ptr->measure_interval;
+		//
+		cm_ptr->measure_state |= 	(cm_ptr->speed_mode_state & (1<<MPP27_FRAME_NUM))|
+													(cm_ptr->speed_mode_state & (1<<MPP100_FRAME_NUM))|
+													(cm_ptr->speed_mode_state & (1<<DNT_FRAME_NUM));
+		return 1;
+	}
+	else{
+		//
+	}
+	return 0;
+}
+
+uint8_t ADII_Meas_Processor_1s(typeCMParameters* cm_ptr)
+{
+	cm_ptr->adii_timeout -= 1;
+	if (cm_ptr->adii_timeout == 0){
+		cm_ptr->measure_state = (1<<ADII_FRAME_NUM);
+		cm_ptr->adii_timeout = cm_ptr->adii_interval;
+		return 1;
+	}
+	else if(cm_ptr->adii_timeout > cm_ptr->adii_interval){
+		cm_ptr->adii_timeout = cm_ptr->adii_interval;
+	}
+	else{
+		//
+	}
+	return 0;
+}
+
+uint8_t DIR_Meas_Processor_1s(typeCMParameters* cm_ptr)
+{
+	cm_ptr->dir_timeout -= 1;
+	if (cm_ptr->dir_timeout == 0){
+		cm_ptr->measure_state = (1<<DIR_FRAME_NUM);
+		cm_ptr->dir_timeout = cm_ptr->dir_interval;
+		return 1;
+	}
+	else if(cm_ptr->dir_timeout > cm_ptr->dir_interval){
+		cm_ptr->dir_timeout = cm_ptr->dir_interval;
+	}
+	else{
+		//
+	}
+	return 0;
 }
 
 // общие функции для работы с кадрами
@@ -291,7 +418,7 @@ void Sys_Frame_Build(typeSysFrames *sys_frame, typeCMParameters* cm_ptr)
     sys_frame->write_ptr = cm_ptr->write_ptr;
 	sys_frame->mko_error_cnt = cm_ptr->mko_error_cnt;
     sys_frame->mko_error = cm_ptr->mko_error;
-    sys_frame->rst_cnt = cm_ptr->rst_cnt;
+    sys_frame->rst_cnt = cm_ptr->rst_cnt & 0xFF;
     sys_frame->diff_time_s = cm_ptr->diff_time_s;
     sys_frame->diff_time_low = cm_ptr->diff_time_low;
     sys_frame->sync_num = cm_ptr->sync_num;
@@ -303,7 +430,7 @@ void Sys_Frame_Build(typeSysFrames *sys_frame, typeCMParameters* cm_ptr)
     sys_frame->bus_error_status = cm_ptr->bus_error_status;
     sys_frame->bus_error_cnt = cm_ptr->bus_error_cnt;
 	sys_frame->bus_error_cnt = cm_ptr->bus_error_cnt;
-	sys_frame->temperature = cm_ptr->temperature;
+	sys_frame->temperature = (cm_ptr->temperature >> 8) & 0xFF;
     sys_frame->operating_time = _rev_u32((uint32_t)cm_ptr->operating_time);
     sys_frame->measure_interval = cm_ptr->measure_interval;
     sys_frame->sys_interval = cm_ptr->sys_interval;
@@ -320,6 +447,23 @@ void Sys_Frame_Build(typeSysFrames *sys_frame, typeCMParameters* cm_ptr)
 	cm_ptr->frame_number ++;
     Write_to_SubAddr(SYS_FRAME_NUM, frame);
     Save_Data_Frame((uint8_t*)sys_frame, cm_ptr);
+}
+
+uint8_t Sys_Frame_Processor_1s(typeSysFrames* sys_ptr, typeCMParameters* cm_ptr, typeCMParameters* cm_old_ptr) //формирование системного кадра
+{
+	cm_ptr->sys_timeout -= 1;
+	if (cm_ptr->sys_timeout == 0) {
+		Sys_Frames_Interval_Build(sys_ptr, cm_ptr);
+		cm_ptr->sys_timeout = cm_ptr->sys_interval;
+		return 1;
+	}
+	else if (cm_ptr->sys_timeout > cm_ptr->sys_interval) { //проверка на неправльное значение timeout
+		cm_ptr->sys_timeout = cm_ptr->sys_interval;
+	}
+	else{
+		Sys_Frames_Additional_Build(sys_ptr, cm_ptr, cm_old_ptr);
+	}
+	return 0;
 }
 
 // работа с МКО

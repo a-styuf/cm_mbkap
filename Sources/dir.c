@@ -58,14 +58,16 @@ void DIR_Data_Get(typeDIRDevice *dir_ptr, typeCMParameters* cm_ptr)
 {
 	uint8_t in_data[32];
 	if (F_Trans(cm_ptr, 3, dir_ptr->ctrl.id, 1, 12, (uint16_t*)in_data) == 1) { //вычитываем по одному измерению для каждого канала ДИР
+		memcpy(&dir_ptr->frame.dir_data[dir_ptr->ctrl.meas_num], in_data, sizeof(typeDIRData));
+		_dir_struct_rev(&dir_ptr->frame.dir_data[dir_ptr->ctrl.meas_num]);
+		//
 		dir_ptr->ctrl.meas_num += 1;
 		if (dir_ptr->ctrl.meas_num >= 2){ // если кадр уже заполнен - выкладываем на ПА и в ЗУ
 			dir_ptr->ctrl.meas_num = 0;
 			dir_ptr->frame.mode = dir_ptr->ctrl.mode;
 			DIR_Frame_Build(dir_ptr, cm_ptr);
 		}
-		memcpy(&dir_ptr->frame.dir_data[dir_ptr->ctrl.meas_num], in_data, sizeof(typeDIRData));
-		_dir_struct_rev(&dir_ptr->frame.dir_data[dir_ptr->ctrl.meas_num]);
+		
 	}
 }
 /* формирование кадров */
@@ -210,6 +212,10 @@ void DNT_MKO_Measure_Initiate(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr)
 	dnt_ptr->ctrl.mko.packet.Data[3] = 100; //мертвое время измерения в мс
 	dnt_ptr->ctrl.mko.packet.Data[4] = 0; // тип для осциллограммы: 0 - ток, 1 - нуль
 	dnt_ptr->ctrl.mko.packet.Data[5] = 0; // ку для осциллограммы
+	// проверка на ускоренный режим
+	if ((cm_ptr->speed_mode_state & (1<<DNT_FRAME_NUM)) && (cm_ptr->speed_mode_timeout)) dnt_ptr->ctrl.mode = 0x04;
+	else dnt_ptr->ctrl.mode = 0x02;
+	//
 	dnt_ptr->ctrl.mko.packet.Data[6] = dnt_ptr->ctrl.mode;
 	// переставляем байты в 16-битных словах
 	mko_data = dnt_ptr->ctrl.mko;

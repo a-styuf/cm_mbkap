@@ -21,7 +21,10 @@
 #define CM_PARAM_SAVE_PERIOD_S   1
 #define DEFAULT_SYS_INTERVAL_S 9
 #define DEFAULT_MEAS_INTERVAL_S 10
+#define DEFAULT_DIR_INTERVAL_S 60  
 #define DEFAULT_ADII_INTERVAL_S 20
+//
+#define DEFAULT_SPEEDY_MODE_TIME_S 3600
 #define SLOT_TIME_MS 100
 // уровни срабатывания токовой защиты мА - трехкратное превышение нормального потребления
 #define MBKAP_BOUND 3*350
@@ -73,45 +76,47 @@ typedef struct // ситстемный кадр
     uint16_t num; //+4 2
     uint32_t time; //+6 4
     //
-    uint16_t currents[7]; //+10 5-10
+    uint16_t currents[7]; //+10 5-12
 	//
-    uint16_t read_ptr; //+24 12
-    uint16_t write_ptr; //+26 13
+    uint8_t rst_cnt; //+24 12
+    int8_t temperature; //+25 12
 	//
-	uint8_t mko_error_cnt; //+28 14
-    uint8_t mko_error; //+29 14
-    uint16_t rst_cnt; //+30 15
+    uint16_t read_ptr; //+26 13
+    uint16_t write_ptr; //+28 14
     //
-    int16_t diff_time_s; //+32 16
+	uint8_t mko_error_cnt; //+30 15
+    uint8_t mko_error; //+31 15
+    //
+    uint8_t bus_nans_cnt; //+32 16
+    uint8_t bus_nans_status; //+33 16
+    //
+	uint8_t bus_error_cnt; //+34 17
+    uint8_t bus_error_status; //+35 17
+	//
+    uint8_t pwr_state; //+36 18
+	uint8_t pwr_status; //+37 18
+	 //
+    uint16_t measure_interval;//+38 19
+    uint16_t sys_interval;//+40 20
+	//
+    int16_t diff_time_s; //+42 21
     // важно: данные параметры восле копирования в кадр будут стоять в обратном порядке
-    uint8_t sync_num; //+34 17
-    uint8_t diff_time_low; //+35 17
+    uint8_t sync_num; //+44 22
+    uint8_t diff_time_low; //+45 22
 	//
-	uint32_t sync_time_s;//+36 18-19
-	uint8_t stm_val;//+40 20
-    uint8_t sync_time_low;//+41 20
+	uint32_t sync_time_s;//+46 23-24
+	uint8_t stm_val;//+50 25
+    uint8_t sync_time_low;//+51 25
     //
-    uint8_t bus_nans_cnt; //+42 21
-    uint8_t bus_error_cnt; //+43 21
-    //
-    uint8_t bus_nans_status; //+44 22
-    uint8_t bus_error_status; //+45 22
-    //
-    int16_t temperature; //+46 23
-    //
-    uint32_t operating_time; //+48 24-25
-    //
-    uint16_t measure_interval;//+52 26
-    uint16_t sys_interval;//+54 27
-    //
-	uint8_t pwr_status; //+56 28
-    uint8_t pwr_state; //+57 28
+    uint32_t operating_time; //+52 25-26
 	//
-	uint8_t adii_mode; //+59 29
-	uint8_t adii_fk; //+58 29
-	uint16_t adii_interval; //+60 30
+	uint8_t adii_mode; //+56 27
+	uint8_t adii_fk; //+57 27
+	uint16_t adii_interval; //+58 28
     //
-    uint16_t crc16; //+62 31
+	uint8_t reserved[2];//+60 29
+	//
+    uint16_t crc16; //+62 30
 }typeSysFrames;
 
 //структуры управления
@@ -141,30 +146,43 @@ typedef struct // параетры ЦМ для управления и сохр�
     int8_t diff_time_low; //+22
     uint8_t sync_num; //+23
     uint32_t operating_time; //+24
-    uint16_t measure_interval;//+28
-	uint16_t sys_interval; //+30
-    uint16_t currents[7]; //+32       
-	uint8_t mko_error_cnt;//+46
-	uint8_t mko_error;//+47
-	uint16_t normal_mode_state; //+48 флаги запусков получния кадров: 0-1 - МПП1-2, 2 - ДНТ, 3 - ДИР, 4 - АДИИ
-	uint16_t speed_mode_state; //+50 состояния нахождения генерации типов кадров по режиму 1 ("0") или 2 ("1"): 0-1 - МПП1-2, 2 - ДИР, 3 - ДНТ, 4 - АДИИ
-	uint16_t speed_mode_timeout; //+52 таймаут на переход в ускоренный режим
-	uint16_t pwr_bounds[7];//+54 граница срабатывания токовой защиты периферии
-	uint32_t sync_time_s;//+68
-	uint8_t sync_time_low;//+72
-	uint8_t stm_val;//+73
+    uint16_t currents[7]; //+28       
+	uint16_t pwr_bounds[7];//+42 граница срабатывания токовой защиты периферии
+	uint8_t mko_error_cnt;//+56
+	uint8_t mko_error;//+57
 	//
-	uint8_t adii_mode; //+74
-	uint8_t adii_fk; //+75
-	uint16_t adii_interval; //+76
+	uint32_t sync_time_s;//+58
+	uint8_t sync_time_low;//+62
+	uint8_t stm_val;//+63
 	//
-	uint8_t defend_mem; //+78 // если 1 - запись остановлена, т.к. указатель чтения достиг защищенную область (указатель записи - размер защищенной области)
-	uint8_t debug; //+79
+	uint16_t parame_interval; //+64 таймер на измерительный интервал
+	uint16_t parame_timeout; //+66 таймер на измерительный интервал
 	//
-	uint16_t additional_sys_frame_flags; //+80 //каждый бит соответствует определенному событиию, по которому сгенерировался дополнительный кадр
-	int16_t temperature; //+82
+	uint16_t sys_interval; //+68
+	uint16_t sys_timeout; //+70 таймер на измерительный интервал
 	//
-    uint8_t reserved[42];//+84
+	uint16_t measure_interval;//+72
+	uint16_t measure_state; //+74 флаги запусков получния кадров: 0-1 - МПП1-2, 2 - ДНТ, 3 - ДИР, 4 - АДИИ
+	uint16_t measure_timeout; //+76 таймер на измерительный интервал
+	//
+	uint16_t speed_mode_state; //+78 состояния нахождения генерации типов кадров по режиму 1 ("0") или 2 ("1"): 0-1 - МПП1-2, 2 - ДИР, 3 - ДНТ
+	uint16_t speed_mode_timeout; //+80 таймаут на переход в ускоренный режим
+	//
+	uint16_t dir_interval; //+82
+	uint16_t dir_timeout; //+84
+	//
+	uint8_t adii_mode; //+86
+	uint8_t adii_fk; //+87
+	uint16_t adii_interval; //+88
+	uint16_t adii_timeout; //+90
+	//
+	uint8_t defend_mem; //+91 // если 1 - запись остановлена, т.к. указатель чтения достиг защищенную область (указатель записи - размер защищенной области)
+	uint8_t debug; //+92
+	//
+	uint16_t additional_sys_frame_flags; //+94 //каждый бит соответствует определенному событиию, по которому сгенерировался дополнительный кадр
+	int16_t temperature; //+96
+	//
+    uint8_t reserved[28];//+98
     uint16_t crc16; //+126
 }typeCMParameters;
 
@@ -200,8 +218,13 @@ void CM_Parame_Start_Init(typeCMParameters* cm_ptr, typeCMParameters* cm_old_ptr
 void CM_Parame_Command_Init(typeCMParameters* cm_ptr);  // функция инициализации структуры по командному сообщению, зануляет все
 void CM_Parame_Operating_Time_Init(uint32_t op_time, typeCMParameters* cm_ptr); //функция, которая устанавливает наработку
 uint8_t CM_Parame_Comparison(typeCMParameters* cm_ptr, typeCMParameters* cm_old_ptr); //сравнивает новую и старую структуру с параметрами ЦМ, выдавая результат в  виде флагов несовпадения
-void CM_Parameters_Write(typeCMParameters* parameters);
-int8_t CM_Parameters_Read(typeCMParameters* parameters);
+uint8_t CM_Parame_Processor_1s(typeCMParameters* cm_ptr);
+//работа с измерительным интервалом и ускоренным режимом
+uint16_t Set_Speedy_Mode(typeCMParameters* cm_ptr, uint16_t on, uint16_t state, uint16_t speedy_mode_time);
+uint8_t Speed_Mode_Processor_1s(typeCMParameters* cm_ptr);
+uint8_t Measurment_Processor_1s(typeCMParameters* cm_ptr); //включаем структуру ДНТ, т.к. ускоренный режим ДНТ отличается от обычного
+uint8_t ADII_Meas_Processor_1s(typeCMParameters* cm_ptr);
+uint8_t DIR_Meas_Processor_1s(typeCMParameters* cm_ptr);
 // общие функции для работы с кадрами
 uint16_t _frame_definer(uint8_t frame_modification, uint16_t device_number,  uint16_t fabrication_num, uint8_t frame_type);
 // формирование системного кадра
@@ -209,6 +232,7 @@ void Sys_Frame_Init(typeSysFrames *sys_frame); //инициализируютс�
 void Sys_Frames_Additional_Build(typeSysFrames *sys_frame, typeCMParameters* cm_ptr, typeCMParameters* cm_old_ptr);
 void Sys_Frames_Interval_Build(typeSysFrames *sys_frame, typeCMParameters* cm_ptr);
 void Sys_Frame_Build(typeSysFrames *sys_frame, typeCMParameters* cm_ptr);
+uint8_t Sys_Frame_Processor_1s(typeSysFrames* sys_ptr, typeCMParameters* cm_ptr, typeCMParameters* cm_old_ptr);  //формирование системного кадра
 // работа с МКО
 uint8_t get_mko_addr(uint8_t def_addr);
 // отладочный интерфейс
