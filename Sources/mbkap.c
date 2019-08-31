@@ -83,7 +83,12 @@ int8_t Load_Data_Frame(typeCMParameters* cm_ptr)  // загрузка кадра
 	uint16_t frame[32];
 	frame_max_num = Get_Max_Data_Frame_Num();
 	//
-	cm_ptr->read_ptr += 1;
+	if (cm_ptr->read_ptr == cm_ptr->write_ptr){
+		
+	}
+	else{
+		cm_ptr->read_ptr += 1;
+	}
 	if (cm_ptr->read_ptr >= frame_max_num) cm_ptr->read_ptr = 0;	
 	//
 	if (cm_ptr->read_ptr < (MEM1_FRAME_SIZE - 4)) frame_addr = cm_ptr->read_ptr + 2;

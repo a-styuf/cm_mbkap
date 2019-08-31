@@ -57,8 +57,6 @@ void Pwr_On_All_Devices(void)
 
 void Pwr_Off_All_Devices(void) 
 {
-	Timers_Start(1, 100); 
-    while (Timers_Status(1) == 0);
 	GPIO_Pwr(2, 0x0); //МПП27
     Timers_Start(1, 100); 
     while (Timers_Status(1) == 0);
