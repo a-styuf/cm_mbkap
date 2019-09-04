@@ -106,17 +106,18 @@ int main() {
 					if (cm.measure_state & (0x1 << MPP100_FRAME_NUM)) MPP_arch_count_offset_get(&mpp100, &cm);
 					break;
 				case 2: // МПП: забор 2х структур 
-					if (cm.measure_state & (0x1 << MPP27_FRAME_NUM)) {
-						MPP_struct_get(&mpp27, &cm);
-					}
-					if (cm.measure_state & (0x1 << MPP100_FRAME_NUM)) {
-						MPP_struct_get(&mpp100, &cm);
-					}
-					cm.measure_state &= ~((1<<MPP27_FRAME_NUM)|(1<<MPP100_FRAME_NUM));
+					if (cm.measure_state & (0x1 << MPP27_FRAME_NUM)) MPP_struct_get(&mpp27, &cm);
+					if (cm.measure_state & (0x1 << MPP100_FRAME_NUM)) MPP_struct_get(&mpp100, &cm);
 					break;
 				case 3: // МПП: принудительный запуск при необходимости
-					MPP_forced_start(&mpp27, &cm);
-					MPP_forced_start(&mpp100, &cm);
+					if (cm.measure_state & (0x1 << MPP27_FRAME_NUM)) {
+						MPP_forced_start(&mpp27, &cm);
+						cm.measure_state &= ~(1<<MPP27_FRAME_NUM);
+					}
+					if (cm.measure_state & (0x1 << MPP100_FRAME_NUM)) {
+						MPP_forced_start(&mpp100, &cm);
+						cm.measure_state &= ~(1<<MPP100_FRAME_NUM);
+					}
 					break;
 				case 4:  // ДИР: чтение резуьтата и запуск измерения
 					if (cm.measure_state & (0x1 << DIR_FRAME_NUM)) {
@@ -141,13 +142,16 @@ int main() {
 					break;
 				case 7: // АДИИ: 
 					if (cm.measure_state & (0x1 << ADII_FRAME_NUM)){
-						ADII_Read_Data(&adii, &cm);
 						ADII_Meas_Start(&adii, &cm);  //управление командой происходит переменной adii.ctrl.mode: 1 - режим тестирования, 0 - нормальный режим
 						//
-						cm.measure_state &= ~(1<<ADII_FRAME_NUM);
 					}
 					break;
 				case 8:
+					if (cm.measure_state & (0x1 << ADII_FRAME_NUM)){
+						ADII_Read_Data(&adii, &cm);
+						//
+						cm.measure_state &= ~(1<<ADII_FRAME_NUM);
+					}
 					break;
 				case 9:
 					break;

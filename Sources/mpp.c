@@ -72,8 +72,6 @@ void MPP_On(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr)
     data[0] = (0x02 << 8); // 0x02 - команда на включение канала мпп на регистрацию
     data[1] = 0x0100; 
 	F_Trans(cm_ptr, 16, mpp_ptr->ctrl.id, 0, 2, data);
-    Timers_Start(1, 10); 
-    while (Timers_Status(1) == 0);
 }
 
 void MPP_Off(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr)
@@ -142,10 +140,10 @@ void MPP_struct_get(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr)
 					mpp_ptr->ctrl.frame_pulse_cnt = 0;
 					MPP_Frame_Build(mpp_ptr, cm_ptr);  //выкладываем на подадрем и в ЗУ
 				}
-				else{  //кадр не полностью заполнен помехами
+				else{
+					//кадр не полностью заполнен помехами
 				}
 				//
-
 			} 
 		}
 	}
@@ -193,12 +191,13 @@ void MPP_mem_init(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr)
 void MPP_forced_start(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr) // происходит только в случае установки флага mpp_ptr->forced_start_flag
 {
     uint16_t data[8];
-	if (mpp_ptr->ctrl.forced_start_flag){
+	if (mpp_ptr->ctrl.forced_start_flag) { //если есть необходимость запустить измреение МПП принудительно - запускаем
 		mpp_ptr->ctrl.forced_start_flag = 0;
 		data[0] = (0x51 << 8); // формируем регистр команд
 		data[1] = 0x01 << 8; // формируем регистр команд
 		F_Trans(cm_ptr, 16, mpp_ptr->ctrl.id, 0, 2, data);
-	}
+	} 
+	else MPP_On(mpp_ptr, cm_ptr); // если необходимости нет - включаем регистрацию, т.к. МПП мог отключиться по питанию
 }
 
 /* функции для внутреннего использования */
