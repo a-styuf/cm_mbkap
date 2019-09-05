@@ -72,17 +72,20 @@ void Pwr_Off_All_Devices(void)
 	GPIO_Pwr(6, 0x0); //ADII
     Timers_Start(1, 100); 
     while (Timers_Status(1) == 0);
+	//
+	Timers_Start(1, 500); 
+    while (Timers_Status(1) == 0);
 };
 
 void Pwr_Perepherial_Devices_On(void) 
 {
-	Timers_Start(1, 250); 
+	Timers_Start(1, 500); 
     while (Timers_Status(1) == 0);
 	GPIO_Pwr(5, 0x1); //DNT
-	Timers_Start(1, 250); 
+	Timers_Start(1, 500); 
     while (Timers_Status(1) == 0);
 	GPIO_Pwr(6, 0x1); //ADII
-    Timers_Start(1, 500); 
+    Timers_Start(1, 3000); 
     while (Timers_Status(1) == 0);
 };
 

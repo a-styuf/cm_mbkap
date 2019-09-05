@@ -43,6 +43,7 @@ void MKO_Init(uint8_t mko_addr)
 	mko_dev.addr = mko_addr;
 	mko_dev.error_cnt = 0;
 	mko_dev.error = 0;
+	mko_dev.aw = (mko_dev.addr & 0x1F)<<11;
 	if (mko_addr==0){ //отключаем МКО
 		MIL_STD_15531->CONTROL = 1;  //reset
 	}
@@ -77,12 +78,21 @@ uint16_t MKO_IVect(uint8_t* error, uint8_t* error_cnt)
 
 void Set_Busy(void)
 {
-    MIL_STD_15531->StatusWord1 = ((mko_dev.addr & 0x1F)<<11)|(0x01 << 3);
+	mko_dev.aw |= (0x01 << 3);
+    MIL_STD_15531->StatusWord1 |= mko_dev.aw;
 }
 
 void Release_Busy(void)
 {
-    MIL_STD_15531->StatusWord1 = ((mko_dev.addr & 0x1F)<<11)|(0x00 << 3);
+	mko_dev.aw &= ~(0x01 << 3);
+    MIL_STD_15531->StatusWord1 = mko_dev.aw;
+}
+
+void Set_AW_bit_7(uint8_t val)
+{
+	if (val & 0x01) mko_dev.aw |= (0x01 <<7);
+	else mko_dev.aw &= ~(0x01 <<7);
+    MIL_STD_15531->StatusWord1 |= mko_dev.aw;
 }
 
 void Write_to_SubAddr(uint8_t subaddr, uint16_t* data)

@@ -32,9 +32,9 @@ typeDevStartInformation mpp100_init_inf;
 typeDevStartInformation dir_init_inf;
 
 extern typeMKOControl mko_dev;
+extern uint16_t ADCData[];
 //
 uint8_t Buff[256];
-extern uint16_t ADCData[];
 uint8_t leng, dbg_status;
 uint16_t reg_addr, dbg_data[32];
 uint8_t uint8_val;
@@ -55,6 +55,8 @@ int main() {
 	CM_Parame_Start_Init(&cm, &cm_old);
 	Sys_Frame_Init(&sys_frame);
 	//включение питания всей периферии  !!!важно - следить за тем, что бы модули включались не противореча параметру cm.pwr_state !!!todo: будет время - переделать на параметризованное включение
+	Pwr_Off_All_Devices();
+	//
 	Pereph_On_and_Get_ID_Frame(2, &mpp27_init_inf);
 	Pereph_On_and_Get_ID_Frame(3, &mpp100_init_inf);
 	Pereph_On_and_Get_ID_Frame(4, &dir_init_inf);
@@ -147,13 +149,13 @@ int main() {
 					}
 					break;
 				case 8:
+					break;
+				case 9:
 					if (cm.measure_state & (0x1 << ADII_FRAME_NUM)){
-						ADII_Read_Data(&adii, &cm);
+						ADII_Read_Data(&adii, &cm); //чтение данных АДИИ переставляем дальше от запуска, иначе ДИР не отвечает
 						//
 						cm.measure_state &= ~(1<<ADII_FRAME_NUM);
 					}
-					break;
-				case 9:
 					break;
 			}
 		}
@@ -169,14 +171,14 @@ int main() {
                 }
 				else if (mko_dev.data[0] == 0x0002) {  //  инициализация ЦМ
 					// перевключение питания
-					Pwr_Off_All_Devices();  // 500 мс
+					Pwr_Off_All_Devices();  // 1000 мс
 					// инициализируем память с привязкой к номеру ячейки
 					Format_Mem();  // мс
 					// последовательно включаем все питание
 					Pereph_On_and_Get_ID_Frame(2, &mpp27_init_inf); // 500 мс
 					Pereph_On_and_Get_ID_Frame(3, &mpp100_init_inf); // 500 мс
 					Pereph_On_and_Get_ID_Frame(4, &dir_init_inf); // 500 мс
-					Pwr_Perepherial_Devices_On(); //включаем ДНТ и АДИИ - 1000мс
+					Pwr_Perepherial_Devices_On(); //включаем ДНТ и АДИИ - 4000мс
 					//инициализация структур переферии //500 мс
 					MPP_Init(&mpp27, _frame_definer(0, DEV_NUM, 0, MPP27_FRAME_NUM), MPP27_FRAME_NUM, MPP27_ID, MPP27_DEF_OFFSET, &cm);
 					MPP_Init(&mpp100, _frame_definer(0, DEV_NUM, 0, MPP100_FRAME_NUM), MPP100_FRAME_NUM, MPP100_ID, MPP100_DEF_OFFSET, &cm);

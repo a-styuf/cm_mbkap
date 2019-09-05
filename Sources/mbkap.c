@@ -84,9 +84,10 @@ int8_t Load_Data_Frame(typeCMParameters* cm_ptr)  // загрузка кадра
 	frame_max_num = Get_Max_Data_Frame_Num();
 	//
 	if (cm_ptr->read_ptr == cm_ptr->write_ptr){
-		
+		Set_AW_bit_7(1);
 	}
 	else{
+		Set_AW_bit_7(0);
 		cm_ptr->read_ptr += 1;
 	}
 	if (cm_ptr->read_ptr >= frame_max_num) cm_ptr->read_ptr = 0;	
@@ -269,7 +270,7 @@ uint16_t Set_Speedy_Mode(typeCMParameters* cm_ptr, uint16_t on, uint16_t state, 
 {
 	if(on&0x0001){  //включение ускоренного режима
 		// разбираемся со временем работы ускоренного режима
-		if (speedy_mode_time)  cm_ptr->speed_mode_timeout = get_val_from_bound(speedy_mode_time, 10, 7200);
+		if (speedy_mode_time)  cm_ptr->speed_mode_timeout = get_val_from_bound(speedy_mode_time, 60, 7200);
 		else  cm_ptr->speed_mode_timeout = DEFAULT_SPEEDY_MODE_TIME_S;
 		// разбираемся с типами кадров для запускаем
 		cm_ptr->speed_mode_state =  state & 0x000B; //зануляем неинтересующие нас поля

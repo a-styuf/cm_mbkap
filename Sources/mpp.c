@@ -22,6 +22,9 @@ void MPP_Init(typeMPPDevice *mpp_ptr, uint16_t frame_definer, uint8_t sub_addr, 
 	MPP_Offset_Set(mpp_ptr, offset, cm_ptr);
 	// Установка порога срабатывания отключения
 	MPP_Pwr_Off_Bound_Set(mpp_ptr, MPP100_DEF_BOUND, cm_ptr);
+	//
+	Timers_Start(1, 100); 
+    while (Timers_Status(1) == 0);
 }
 
 /* Общение с МПП по ВШ */
@@ -80,8 +83,6 @@ void MPP_Off(typeMPPDevice *mpp_ptr, typeCMParameters* cm_ptr)
     data[0] = (0x02 << 8); // 0x02 - команда на включение канала мпп на регистрацию
     data[1] = 0x0000; 
 	F_Trans(cm_ptr, 16, mpp_ptr->ctrl.id, 0, 2, data);
-    Timers_Start(1, 10); 
-    while (Timers_Status(1) == 0);
 }
 
 void MPP_Offset_Set(typeMPPDevice *mpp_ptr, uint16_t offset, typeCMParameters* cm_ptr)

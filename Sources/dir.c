@@ -4,6 +4,8 @@
 */
 #include "dir.h"
 
+#define INIT_TIMEOUT_MS 100
+
 //общие переменные
 extern uint8_t in_buff[256];
 extern uint8_t out_buff[256];
@@ -16,13 +18,16 @@ void DIR_Init(typeDIRDevice *dir_ptr, uint16_t frame_definer, uint8_t sub_addr, 
 	dir_ptr->ctrl.frame_definer = frame_definer;
 	dir_ptr->ctrl.sub_addr = sub_addr;
 	dir_ptr->ctrl.id = id;
-	// параметры для запуска измерения
+	// Параметры для запуска измерения
 	dir_ptr->ctrl.mode = 1;
 	dir_ptr->ctrl.meas_num = 0;
 	// Иницилизация кадра
 	DIR_Frame_Init(dir_ptr);
 	// Предварительный запуск ДИР
 	DIR_Start_Measurement(dir_ptr, cm_ptr);
+	//
+	Timers_Start(1, INIT_TIMEOUT_MS); 
+    while (Timers_Status(1) == 0);
 }
 
 void DIR_constatnt_mode(uint8_t mode)  // широковещательная; mode: 1 - on; 0 - off;
@@ -129,6 +134,9 @@ void DNT_Init(typeDNTDevice *dnt_ptr, uint16_t frame_definer, uint16_t dev_frame
 	DNT_Frame_Init(dnt_ptr);
 	// Предварительный запуск ДИР
 	DNT_MKO_Measure_Initiate(dnt_ptr, cm_ptr);
+	//
+	Timers_Start(1, INIT_TIMEOUT_MS);
+    while (Timers_Status(1) == 0);
 }
 
 void DNT_MKO_Read_Initiate(typeDNTDevice *dnt_ptr, typeCMParameters* cm_ptr)
@@ -317,6 +325,9 @@ void ADII_Init(typeADIIDevice *adii_ptr, uint16_t frame_definer, uint8_t sub_add
 	ADII_Frame_Init(adii_ptr);
 	//запускаем измерение
 	ADII_Meas_Start(adii_ptr, cm_ptr);  //управление командой происходит переменной adii.ctrl.mode: 1 - режим тестирования, 0 - нормальный режим
+	//
+	Timers_Start(1, INIT_TIMEOUT_MS); 
+    while (Timers_Status(1) == 0);
 }
 
 void ADII_Meas_Start(typeADIIDevice *adii_ptr, typeCMParameters* cm_ptr)  //управление командой происходит переменной adii.ctrl.mode: 1 - режим тестирования, 0 - нормальный режим
