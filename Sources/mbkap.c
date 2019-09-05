@@ -302,7 +302,7 @@ uint8_t Measurment_Processor_1s(typeCMParameters* cm_ptr) //включаем с�
 	cm_ptr->measure_timeout -= 1;
 	if (cm_ptr->measure_timeout == 0) {
 		cm_ptr->measure_timeout = cm_ptr->measure_interval;
-		cm_ptr->measure_state = 	(1<<MPP27_FRAME_NUM)|
+		cm_ptr->measure_state |= 	(1<<MPP27_FRAME_NUM)|
 													(1<<MPP100_FRAME_NUM)|
 													(1<<DNT_FRAME_NUM);
 	}
@@ -331,7 +331,7 @@ uint8_t ADII_Meas_Processor_1s(typeCMParameters* cm_ptr)
 {
 	cm_ptr->adii_timeout -= 1;
 	if (cm_ptr->adii_timeout == 0){
-		cm_ptr->measure_state = (1<<ADII_FRAME_NUM);
+		cm_ptr->measure_state |= (1<<ADII_FRAME_NUM);
 		cm_ptr->adii_timeout = cm_ptr->adii_interval;
 		return 1;
 	}
@@ -348,7 +348,7 @@ uint8_t DIR_Meas_Processor_1s(typeCMParameters* cm_ptr)
 {
 	cm_ptr->dir_timeout -= 1;
 	if (cm_ptr->dir_timeout == 0){
-		cm_ptr->measure_state = (1<<DIR_FRAME_NUM);
+		cm_ptr->measure_state |= (1<<DIR_FRAME_NUM);
 		cm_ptr->dir_timeout = cm_ptr->dir_interval;
 		return 1;
 	}

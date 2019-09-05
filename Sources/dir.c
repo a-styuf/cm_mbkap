@@ -21,6 +21,8 @@ void DIR_Init(typeDIRDevice *dir_ptr, uint16_t frame_definer, uint8_t sub_addr, 
 	// Параметры для запуска измерения
 	dir_ptr->ctrl.mode = 1;
 	dir_ptr->ctrl.meas_num = 0;
+	//
+	
 	// Иницилизация кадра
 	DIR_Frame_Init(dir_ptr);
 	// Предварительный запуск ДИР
@@ -72,7 +74,6 @@ void DIR_Data_Get(typeDIRDevice *dir_ptr, typeCMParameters* cm_ptr)
 			dir_ptr->frame.mode = dir_ptr->ctrl.mode;
 			DIR_Frame_Build(dir_ptr, cm_ptr);
 		}
-		
 	}
 }
 /* формирование кадров */
