@@ -333,7 +333,8 @@ void ADII_Init(typeADIIDevice *adii_ptr, uint16_t frame_definer, uint8_t sub_add
 
 void ADII_Meas_Start(typeADIIDevice *adii_ptr, typeCMParameters* cm_ptr)  //управление командой происходит переменной adii.ctrl.mode: 1 - режим тестирования, 0 - нормальный режим
 {
-	adii_ptr->ctrl.data.Run = 0x0001;  //размер передаваемой из АДИИ структуры
+	typeADIIData adii_data;
+	adii_ptr->ctrl.data.Run = 0x0001;  // кол-во байт для передачи
 	adii_ptr->ctrl.data.RxLeng = 0x0000;
 	memset((uint8_t*)&adii_ptr->ctrl.data.Data[0], 0x00, 64);
 	// выбираем режим для запуска: если режим тестовый ("m"), то он сбрасывается на нормальный
@@ -348,7 +349,9 @@ void ADII_Meas_Start(typeADIIDevice *adii_ptr, typeCMParameters* cm_ptr)  //уп
 		adii_ptr->ctrl.mode = 0; 
 		adii_ptr->ctrl.data.Data[0] = 's';
 	}
-	F_Trans(cm_ptr, 16, adii_ptr->ctrl.dir_id, 0x0200, sizeof(typeADIIData)/2, (uint16_t*)&adii_ptr->ctrl.data);
+	adii_data = adii_ptr->ctrl.data;
+	_adii_data_rev(&adii_data);
+	F_Trans(cm_ptr, 16, adii_ptr->ctrl.dir_id, 0x0200, 3, (uint16_t*)&adii_data);
 }
 
 void ADII_Read_Data(typeADIIDevice *adii_ptr, typeCMParameters* cm_ptr)
@@ -373,7 +376,12 @@ void ADII_Read_Data(typeADIIDevice *adii_ptr, typeCMParameters* cm_ptr)
 		cm_ptr->adii_fk = adii_ptr->ctrl.data.Data[0];
 	}
 	// Выкоалываем на ПА и сохраняем в ЗУ
-	ADII_Frame_Build(adii_ptr, cm_ptr);
+	if (adii_ptr->ctrl.data.Data[53] & 0x02){
+		//режим диполяризации
+	}
+	else{
+		ADII_Frame_Build(adii_ptr, cm_ptr);	
+	}
 }
 
 /* формирование кадров */
@@ -427,11 +435,11 @@ void _dir_mko_data_struct_rev(typeDIRMKOData* struct_ptr)
 
 void _adii_data_rev(typeADIIData* struct_ptr)
 {  
-    uint16_t data[32];
+    uint16_t data[64];
     uint8_t i = 0;
-    memcpy((uint8_t *)data, (uint8_t *)&struct_ptr->Data[0], 64);
-    for (i=0; i<32; i++) {
+    memcpy((uint8_t *)data, (uint8_t *)struct_ptr, sizeof(typeADIIData));
+    for (i=0; i<sizeof(typeADIIData)/2; i++) {
         data[i] = __REV16(data[i]);
     }
-    memcpy((uint8_t *)&struct_ptr->Data[0], (uint8_t *)data, 64);
+    memcpy((uint8_t *)struct_ptr, (uint8_t *)data, sizeof(typeADIIData));
 }
