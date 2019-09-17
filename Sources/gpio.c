@@ -1,5 +1,8 @@
 #include "gpio.h"
 
+#define NKBE_SHIFT (1<<30)
+#define AMKO_SHIFT (1<<31)
+
 uint8_t GPIO_Get_CM_Id(void) 
 {
   return (uint8_t)((PORTB->RXTX) & 0x01);
@@ -7,10 +10,16 @@ uint8_t GPIO_Get_CM_Id(void)
 
 void GPIO_TM(uint8_t tm_num, uint8_t on)   //tm_num = 0,1: NKBE, AMKO
 { 
-  if(tm_num <= 1) {
-    if(on) PORTE->CRXTX = (1<<(30+tm_num));
-    else   PORTE->SRXTX = (1<<(30+tm_num));
-    }
+	switch(tm_num){
+		case 0:
+			if(on) PORTB->CRXTX = NKBE_SHIFT;
+			else   PORTB->SRXTX = NKBE_SHIFT;
+		break;
+		case 1:
+			if(on) PORTB->CRXTX = AMKO_SHIFT;
+			else   PORTB->SRXTX = AMKO_SHIFT;
+		break;
+	}
 }
 
 void GPIO_Pwr(uint8_t pwr_num, uint8_t on)  //pwr_num: 0-MBKAP, 1-CM, 2-MPP27, 3-MPP100, 4-DIR, 5-DNT, 6-ADII 

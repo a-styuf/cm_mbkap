@@ -200,8 +200,11 @@ int main() {
 					else if (mko_dev.data[1] == 1){  // системный интервал
 						cm.sys_interval = get_val_from_bound(mko_dev.data[2], 10, 3600);
 					}
-					else if (mko_dev.data[1] == 0){  // интервал опроса АДИИ
-						cm.adii_interval = get_val_from_bound(mko_dev.data[2], 10, 3600);
+					else if (mko_dev.data[1] == 2){  // интервал опроса АДИИ
+						cm.adii_measure_interval = get_val_from_bound(mko_dev.data[2], 10, 3600);
+					}
+					else if (mko_dev.data[1] == 3){  // интервал опроса АДИИ
+						cm.adii_depol_interval = get_val_from_bound(mko_dev.data[2], 10, 3600);
 					}
 				}
 				else if (mko_dev.data[0] == 0x0004) {  // установка указателя чтения ЗУ

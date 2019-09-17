@@ -182,13 +182,14 @@ void _cm_params_set_default(typeCMParameters* cm_ptr)
 	// устанавливаем интервал измерения
 	cm_ptr->measure_interval = DEFAULT_MEAS_INTERVAL_S;
 	cm_ptr->sys_interval = DEFAULT_SYS_INTERVAL_S;
-	cm_ptr->adii_interval = DEFAULT_ADII_INTERVAL_S;
+	cm_ptr->adii_measure_interval = DEFAULT_ADII_MEAS_INTERVAL_S;
+	cm_ptr->adii_depol_interval = DEFAULT_ADII_DEPOL_INTERVAL_S;
 	cm_ptr->parame_interval = CM_PARAM_SAVE_PERIOD_S;
 	cm_ptr->dir_interval = DEFAULT_DIR_INTERVAL_S;
 	// устанавливаем таймауты для того, что бы не пропустить первый интервал
 	cm_ptr->measure_timeout = DEFAULT_MEAS_INTERVAL_S;
 	cm_ptr->sys_timeout = DEFAULT_SYS_INTERVAL_S;
-	cm_ptr->adii_timeout = DEFAULT_ADII_INTERVAL_S;
+	cm_ptr->adii_timeout = DEFAULT_ADII_MEAS_INTERVAL_S;
 	cm_ptr->parame_timeout = CM_PARAM_SAVE_PERIOD_S;
 	cm_ptr->dir_timeout = DEFAULT_DIR_INTERVAL_S;
 }
@@ -332,11 +333,17 @@ uint8_t ADII_Meas_Processor_1s(typeCMParameters* cm_ptr)
 	cm_ptr->adii_timeout -= 1;
 	if (cm_ptr->adii_timeout == 0){
 		cm_ptr->measure_state |= (1<<ADII_FRAME_NUM);
-		cm_ptr->adii_timeout = cm_ptr->adii_interval;
+		if (cm_ptr->adii_mode & 0x02)
+			cm_ptr->adii_timeout = cm_ptr->adii_measure_interval;
+		else
+			cm_ptr->adii_timeout = cm_ptr->adii_depol_interval;
 		return 1;
 	}
-	else if(cm_ptr->adii_timeout > cm_ptr->adii_interval){
-		cm_ptr->adii_timeout = cm_ptr->adii_interval;
+	else if( (cm_ptr->adii_mode & 0x02) && (cm_ptr->adii_timeout > cm_ptr->adii_measure_interval)){
+		cm_ptr->adii_timeout = cm_ptr->adii_measure_interval;
+	}
+	else if(((cm_ptr->adii_mode & 0x02) == 0) && (cm_ptr->adii_timeout > cm_ptr->adii_depol_interval)){
+		cm_ptr->adii_timeout = cm_ptr->adii_depol_interval;
 	}
 	else{
 		//
@@ -445,7 +452,8 @@ void Sys_Frame_Build(typeSysFrames *sys_frame, typeCMParameters* cm_ptr)
 	// adii 
     sys_frame->adii_mode = cm_ptr->adii_mode;
     sys_frame->adii_fk = cm_ptr->adii_fk;
-    sys_frame->adii_interval = cm_ptr->adii_interval;
+    sys_frame->adii_measure_interval = cm_ptr->adii_measure_interval;
+    sys_frame->adii_depol_interval = cm_ptr->adii_depol_interval;
 	
 	sys_frame->crc16 = crc16_ccitt((uint8_t*)sys_frame, 62);
     memcpy((uint8_t *)frame, (uint8_t *)sys_frame, sizeof(typeSysFrames));

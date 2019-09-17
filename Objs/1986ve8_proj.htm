@@ -3,7 +3,7 @@
 <title>Static Call Graph - [.\Objs\1986ve8_proj.axf]</title></head>
 <body><HR>
 <H1>Static Call Graph for image .\Objs\1986ve8_proj.axf</H1><HR>
-<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 5060422: Last Updated: Fri Sep 06 17:39:11 2019
+<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 5060422: Last Updated: Mon Sep 16 16:08:05 2019
 <BR><P>
 <H3>Maximum Stack Usage =        344 bytes + Unknown(Functions without stacksize, Cycles, Untraceable Function Pointers)</H3><H3>
 Call chain for Maximum Stack Depth:</H3>
@@ -365,7 +365,7 @@ Global Symbols
 <BR><BR>[Called By]<UL><LI><a href="#[56]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 </UL>
 
-<P><STRONG><a name="[56]"></a>main</STRONG> (Thumb, 1906 bytes, Stack size 16 bytes, main.o(.text))
+<P><STRONG><a name="[56]"></a>main</STRONG> (Thumb, 1936 bytes, Stack size 16 bytes, main.o(.text))
 <BR><BR>[Stack]<UL><LI>Max Depth = 344 + Unknown Stack Size
 <LI>Call Chain = main &rArr; CM_Parame_Start_Init &rArr; Read_Parameters &rArr; _read_cm_parameters_frame_with_crc16_check &rArr; crc16_ccitt
 </UL>
@@ -733,7 +733,7 @@ Global Symbols
 <LI><a href="#[64]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;Init_STM
 </UL>
 
-<P><STRONG><a name="[db]"></a>GPIO_TM</STRONG> (Thumb, 34 bytes, Stack size 0 bytes, gpio.o(.text))
+<P><STRONG><a name="[db]"></a>GPIO_TM</STRONG> (Thumb, 56 bytes, Stack size 0 bytes, gpio.o(.text))
 <BR><BR>[Called By]<UL><LI><a href="#[da]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;Set_STM
 </UL>
 
@@ -833,7 +833,7 @@ Global Symbols
 <LI><a href="#[8b]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;CM_Parame_Command_Init
 </UL>
 
-<P><STRONG><a name="[bc]"></a>_cm_params_set_default</STRONG> (Thumb, 152 bytes, Stack size 0 bytes, mbkap.o(.text))
+<P><STRONG><a name="[bc]"></a>_cm_params_set_default</STRONG> (Thumb, 156 bytes, Stack size 0 bytes, mbkap.o(.text))
 <BR><BR>[Called By]<UL><LI><a href="#[ba]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;CM_Parame_Full_Init
 <LI><a href="#[65]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;CM_Parame_Start_Init
 <LI><a href="#[8b]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;CM_Parame_Command_Init
@@ -912,11 +912,11 @@ Global Symbols
 <BR><BR>[Called By]<UL><LI><a href="#[56]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 </UL>
 
-<P><STRONG><a name="[78]"></a>ADII_Meas_Processor_1s</STRONG> (Thumb, 60 bytes, Stack size 0 bytes, mbkap.o(.text))
+<P><STRONG><a name="[78]"></a>ADII_Meas_Processor_1s</STRONG> (Thumb, 134 bytes, Stack size 0 bytes, mbkap.o(.text))
 <BR><BR>[Called By]<UL><LI><a href="#[56]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 </UL>
 
-<P><STRONG><a name="[77]"></a>DIR_Meas_Processor_1s</STRONG> (Thumb, 68 bytes, Stack size 0 bytes, mbkap.o(.text))
+<P><STRONG><a name="[77]"></a>DIR_Meas_Processor_1s</STRONG> (Thumb, 60 bytes, Stack size 0 bytes, mbkap.o(.text))
 <BR><BR>[Called By]<UL><LI><a href="#[56]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 </UL>
 
@@ -960,7 +960,7 @@ Global Symbols
 <BR>[Called By]<UL><LI><a href="#[56]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 </UL>
 
-<P><STRONG><a name="[c0]"></a>Sys_Frame_Build</STRONG> (Thumb, 258 bytes, Stack size 80 bytes, mbkap.o(.text))
+<P><STRONG><a name="[c0]"></a>Sys_Frame_Build</STRONG> (Thumb, 264 bytes, Stack size 80 bytes, mbkap.o(.text))
 <BR><BR>[Stack]<UL><LI>Max Depth = 120<LI>Call Chain = Sys_Frame_Build &rArr; Save_Data_Frame &rArr; _calc_defended_mem_addr
 </UL>
 <BR>[Calls]<UL><LI><a href="#[a0]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;__aeabi_memclr4

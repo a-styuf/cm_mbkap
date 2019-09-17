@@ -22,7 +22,8 @@
 #define DEFAULT_SYS_INTERVAL_S 9
 #define DEFAULT_MEAS_INTERVAL_S 10
 #define DEFAULT_DIR_INTERVAL_S 60  
-#define DEFAULT_ADII_INTERVAL_S 20
+#define DEFAULT_ADII_MEAS_INTERVAL_S 30
+#define DEFAULT_ADII_DEPOL_INTERVAL_S 15
 //
 #define DEFAULT_SPEEDY_MODE_TIME_S 3600
 #define SLOT_TIME_MS 100
@@ -112,9 +113,10 @@ typedef struct // ситстемный кадр
 	//
 	uint8_t adii_mode; //+56 27
 	uint8_t adii_fk; //+57 27
-	uint16_t adii_interval; //+58 28
+	uint16_t adii_measure_interval; //+58 28
+	uint16_t adii_depol_interval; //+60 28
     //
-	uint8_t reserved[2];//+60 29
+	//uint8_t reserved[2];//+62 0
 	//
     uint16_t crc16; //+62 30
 }typeSysFrames;
@@ -173,16 +175,17 @@ typedef struct // параетры ЦМ для управления и сохр�
 	//
 	uint8_t adii_mode; //+86
 	uint8_t adii_fk; //+87
-	uint16_t adii_interval; //+88
-	uint16_t adii_timeout; //+90
+	uint16_t adii_measure_interval; //+88
+	uint16_t adii_depol_interval; //+90
+	uint16_t adii_timeout; //+93
 	//
-	uint8_t defend_mem; //+91 // если 1 - запись остановлена, т.к. указатель чтения достиг защищенную область (указатель записи - размер защищенной области)
-	uint8_t debug; //+92
+	uint8_t defend_mem; //+94 // если 1 - запись остановлена, т.к. указатель чтения достиг защищенную область (указатель записи - размер защищенной области)
+	uint8_t debug; //+95
 	//
-	uint16_t additional_sys_frame_flags; //+94 //каждый бит соответствует определенному событиию, по которому сгенерировался дополнительный кадр
-	int16_t temperature; //+96
+	uint16_t additional_sys_frame_flags; //+96 //каждый бит соответствует определенному событиию, по которому сгенерировался дополнительный кадр
+	int16_t temperature; //+98
 	//
-    uint8_t reserved[28];//+98
+    uint8_t reserved[26];//+100
     uint16_t crc16; //+126
 }typeCMParameters;
 
