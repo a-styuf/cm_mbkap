@@ -11,18 +11,17 @@ uint8_t out_buff[256];
 // обработка информации о потреблении токов
 uint8_t  Pwr_current_process(typeCMParameters* cm_ptr)
 {
-	uint8_t i, status_1 = 0, status_2 = 0;
+	uint8_t i, status;
 	uint8_t new_pwr_state = cm_ptr->pwr_state;
-	status_1 = Get_Modules_Current(cm_ptr->currents, cm_ptr->pwr_bounds); //токи [МБКАП, ЦМ, МПП100, МПП27, ДИР, ДНТ, АДИИ]
-	if (status_1) status_2 = Get_Modules_Current(cm_ptr->currents, cm_ptr->pwr_bounds); //в случае обнаружения превышения на всякий прочитаем еще раз, что бы исключаить разовый выброс от ВЧ-помехи
-	cm_ptr->pwr_status |= (status_1 & status_2);
-	if ((status_1 & status_2)  != 0){
+	status = Get_Modules_Current(cm_ptr->currents, cm_ptr->pwr_bounds); //токи [МБКАП, ЦМ, МПП100, МПП27, ДИР, ДНТ, АДИИ]
+	if ((cm_ptr->pwr_status & status) != 0){ //проверяем, были ли два раза подряд превышения 
 		for (i=2; i<7; i++) { //отключаем таким способом все блоки кроме МБКАП и ЦМ
-			if (((status_1 & status_2) & (1 << i)) != 0) {
+			if (((cm_ptr->pwr_status & status) & (1 << i)) != 0) {
 				new_pwr_state &= ~(0x01 << i); //если два раза измерения токов показали превышения для отдельного модуля, то подготовливаем state для его отключения
 			} 
 		}
 	}
+	cm_ptr->pwr_status = status;
 	if (cm_ptr->pwr_state != new_pwr_state){
 		Pwr_Ctrl_by_State(new_pwr_state);
 		cm_ptr->pwr_state = new_pwr_state;
@@ -247,13 +246,12 @@ uint8_t CM_Parame_Processor_1s(typeCMParameters* cm_ptr) //проверка и �
 {
 	cm_ptr->parame_timeout -= 1;
 	if (cm_ptr->parame_timeout == 0) {
-		Pwr_current_process(&cm); // работа с потреблением
 		cm_ptr->temperature = Get_MCU_Temp(); // получение температуры
 		//работа со временем ЦМ
 		cm_ptr->operating_time += cm_ptr->parame_interval; //todo: возможная проблема - расхождения времени и времени наработки из-за пропусков секундных интервалов
 		cm_ptr->time = Get_Time_s();
 		//не забываем сохранять структуру в память
-		Write_Parameters(&cm);
+		Write_Parameters(cm_ptr);
 		//
 		cm_ptr->parame_timeout = cm_ptr->parame_interval;
 		return 1;
@@ -334,15 +332,15 @@ uint8_t ADII_Meas_Processor_1s(typeCMParameters* cm_ptr)
 	if (cm_ptr->adii_timeout == 0){
 		cm_ptr->measure_state |= (1<<ADII_FRAME_NUM);
 		if (cm_ptr->adii_mode & 0x02)
-			cm_ptr->adii_timeout = cm_ptr->adii_measure_interval;
-		else
 			cm_ptr->adii_timeout = cm_ptr->adii_depol_interval;
+		else
+			cm_ptr->adii_timeout = cm_ptr->adii_measure_interval;
 		return 1;
 	}
-	else if( (cm_ptr->adii_mode & 0x02) && (cm_ptr->adii_timeout > cm_ptr->adii_measure_interval)){
+	else if( (cm_ptr->adii_mode & 0x02) && (cm_ptr->adii_timeout > cm_ptr->adii_measure_interval)){ //проверка на некорректный интервал измерения
 		cm_ptr->adii_timeout = cm_ptr->adii_measure_interval;
 	}
-	else if(((cm_ptr->adii_mode & 0x02) == 0) && (cm_ptr->adii_timeout > cm_ptr->adii_depol_interval)){
+	else if(((cm_ptr->adii_mode & 0x02) == 0) && (cm_ptr->adii_timeout > cm_ptr->adii_depol_interval)){ //проверка на некорректный интервал деполяризации
 		cm_ptr->adii_timeout = cm_ptr->adii_depol_interval;
 	}
 	else{

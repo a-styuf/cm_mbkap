@@ -370,14 +370,14 @@ void ADII_Read_Data(typeADIIDevice *adii_ptr, typeCMParameters* cm_ptr)
 	}
 	else{
 		// показания ФК и режима складываем в структуру параметров ЦМ
-		if (_adii_crc_check((uint8_t*)&adii_ptr->ctrl.data.Data[0], 54) == adii_ptr->ctrl.data.Data[54]) cm_ptr->adii_mode |= 0x80; // проверка контрольной суммы
+		if (_adii_crc_check((uint8_t*)&adii_ptr->ctrl.data.Data[0], 54) == adii_ptr->ctrl.data.Data[54]) cm_ptr->adii_mode = 0x80; // проверка контрольной суммы
 		else	cm_ptr->adii_mode = 0;
-		cm_ptr->adii_mode = adii_ptr->ctrl.data.Data[53];
+		cm_ptr->adii_mode |= adii_ptr->ctrl.data.Data[53];
 		cm_ptr->adii_fk = adii_ptr->ctrl.data.Data[0];
 	}
-	// Выкоалываем на ПА и сохраняем в ЗУ
+	// Выкладываем на ПА и сохраняем в ЗУ
 	if (adii_ptr->ctrl.data.Data[53] & 0x02){
-		//режим диполяризации
+		//режим диполяризации: не делаем ничего
 	}
 	else{
 		ADII_Frame_Build(adii_ptr, cm_ptr);	
