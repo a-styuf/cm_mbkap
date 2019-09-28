@@ -1,3 +1,6 @@
+# my ignores
+/Objs/*
+
 # Prerequisites
 *.d
 
