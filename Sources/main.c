@@ -237,16 +237,13 @@ int main() {
 				else if (mko_dev.data[0] == 0x000A) {  // установка состояния питания модулей
 					Set_Pwr_State(&cm.pwr_state, &cm.pwr_status, mko_dev.data[1] & 0xFF, mko_dev.data[2] & 0x01);
 				}
-				else if (mko_dev.data[0] == 0x000A) {  // запуск ускоренного режима
-					Set_Speedy_Mode(&cm, mko_dev.data[1], mko_dev.data[2], mko_dev.data[2]);
+				else if (mko_dev.data[0] == 0x000B) {  // запуск ускоренного режима
+					Set_Speedy_Mode(&cm, mko_dev.data[1], mko_dev.data[2], mko_dev.data[3]);
 				}
 				else if (mko_dev.data[0] == 0x000C) {  // управление порогом отключения МБКАП по МПП100
 					MPP_Pwr_Off_Bound_Set(&mpp100, mko_dev.data[1], &cm);
 				}
 				else if (mko_dev.data[0] == 0x000D) {  // управление напряжением работы ДИР
-					dnt.ctrl.mode = mko_dev.data[1];
-				}
-				else if (mko_dev.data[0] == 0x000D) {  // ускоренный режим
 					dnt.ctrl.mode = mko_dev.data[1];
 				}
 			}    
