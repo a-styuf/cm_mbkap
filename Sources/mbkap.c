@@ -21,7 +21,7 @@ uint8_t  Pwr_current_process(typeCMParameters* cm_ptr)
 			} 
 		}
 	}
-	cm_ptr->pwr_status = status;
+	cm_ptr->pwr_status |= status;
 	if (cm_ptr->pwr_state != new_pwr_state){
 		Pwr_Ctrl_by_State(new_pwr_state);
 		cm_ptr->pwr_state = new_pwr_state;
