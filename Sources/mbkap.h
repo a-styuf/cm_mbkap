@@ -14,17 +14,18 @@
 
 //***Параметры программы для ЦМ МБКАП
 // номер устройства
-#define DEV_NUM 206 //206 - МБКАП_зн02; 207 - МБКАП_зн03; 208 - МБКАП_зн04; 209 - МБКАП_зн05;
+#define DEV_NUM 208 //206 - МБКАП_зн02; 207 - МБКАП_зн03; 208 - МБКАП_зн04; 209 - МБКАП_зн05;
 // параметры МКО
-#define MKO_ID  22
+#define MKO_ID  0  // 0 - адрес берется с разъема, не 0 - адрес МКО
 // времянные параметры интервалов и слотов
 #define CM_PARAM_SAVE_PERIOD_S   1
+	//
 #define DEFAULT_SYS_INTERVAL_S 1800
 #define DEFAULT_MEAS_INTERVAL_S 360
 #define DEFAULT_DIR_INTERVAL_S 60  
 #define DEFAULT_ADII_MEAS_INTERVAL_S 360
 #define DEFAULT_ADII_DEPOL_INTERVAL_S 60
-//
+	//
 #define DEFAULT_SPEEDY_MODE_TIME_S 3600
 #define SLOT_TIME_MS 100
 // уровни срабатывания токовой защиты мА - трехкратное превышение нормального потребления
@@ -36,9 +37,9 @@
 #define DNT_BOUND 3*31
 #define ADII_BOUND 3*125
 // настройки МПП
-#define MPP27_DEF_OFFSET 0 // уровень срабатывания МПП27
-#define MPP100_DEF_OFFSET 0  // уровень срабатывания МПП100
-#define MPP100_DEF_BOUND 0  // уровень срабатывания МПП100 при котором происходит отключение реле питания
+#define MPP27_DEF_OFFSET 10 // уровень срабатывания МПП27, кв. АЦП
+#define MPP100_DEF_OFFSET 6  // уровень срабатывания МПП100, кв. АЦП
+#define MPP100_DEF_BOUND 2285  // 85 V // уровень срабатывания МПП100 [кв. АЦП] при котором происходит отключение реле питания по величине 100В (входное напряжение РМПЕ 80-100)
 // таймаут для определения неответа для внутренней шины
 #define UART_TIMEOUT_MS 6
 // номера кадров для МКО/МПИ

@@ -3,72 +3,87 @@
 <pre>
 <h1>µVision Build Log</h1>
 <h2>Tool Versions:</h2>
-IDE-Version: µVision V5.22.0.0
-Copyright (C) 2016 ARM Ltd and ARM Germany GmbH. All rights reserved.
-License Information: VAsya Pupkin, Home, LIC=P6FX7-ETI1V-49SG2-9L7JY-U9XMC-JTGJI
+IDE-Version: µVision V5.32.0.0
+Copyright (C) 2020 ARM Ltd and ARM Germany GmbH. All rights reserved.
+License Information: Vasya a-styuf@yandex.ru, Pupk, LIC=WHYH9-47SJE-Y8VFK-Z2M7J-BRK7L-12XCV
  
 Tool Versions:
-Toolchain:       MDK-ARM Professional  Version: 5.22
+Toolchain:       MDK-ARM Plus  Version: 5.32.0.0
 Toolchain Path:  C:\Keil_v5\ARM\ARMCC\Bin
-C Compiler:      Armcc.exe V5.06 update 4 (build 422)
-Assembler:       Armasm.exe V5.06 update 4 (build 422)
-Linker/Locator:  ArmLink.exe V5.06 update 4 (build 422)
-Library Manager: ArmAr.exe V5.06 update 4 (build 422)
-Hex Converter:   FromElf.exe V5.06 update 4 (build 422)
-CPU DLL:         SARMCM3.DLL V5.22
-Dialog DLL:      DCM.DLL V1.13.9.0
-Target DLL:      UL2CM3.DLL V1.159.0.0
-Dialog DLL:      TCM.DLL V1.21.0.0
+C Compiler:      Armcc.exe V5.06 update 7 (build 960)
+Assembler:       Armasm.exe V5.06 update 7 (build 960)
+Linker/Locator:  ArmLink.exe V5.06 update 7 (build 960)
+Library Manager: ArmAr.exe V5.06 update 7 (build 960)
+Hex Converter:   FromElf.exe V5.06 update 7 (build 960)
+CPU DLL:         SARMCM3.DLL V5.32.0.0
+Dialog DLL:      DCM.DLL V1.17.3.0
+Target DLL:      STLink\ST-LINKIII-KEIL_SWO.dll V3.0.8.0
+Dialog DLL:      TCM.DLL V1.46.0.0
  
 <h2>Project:</h2>
-D:\YandexDisk\Work\Microcontrolers\1986ÂÅ8\cm_mbkap\1986ve8_proj.uvproj
-Project File Date:  09/13/2019
+D:\YandexDisk\Work\Microcontrolers\1986ÂÅ8\cm_mbkap\1986ve8_proj.uvprojx
+Project File Date:  01/30/2021
 
 <h2>Output:</h2>
-*** Using Compiler 'V5.06 update 4 (build 422)', folder: 'C:\Keil_v5\ARM\ARMCC\Bin'
-Build target 'Target (ExtMEM Rls)'
+*** Using Compiler 'V5.06 update 7 (build 960)', folder: 'C:\Keil_v5\ARM\ARMCC\Bin'
+Rebuild target 'Target (ExtMEM Dbg)'
+compiling uarts.c...
+compiling mko.c...
 compiling adc.c...
+compiling main.c...
+compiling wdt.c...
+compiling sysinit.c...
 compiling eerom.c...
 Sources\eerom.c(9): warning:  #186-D: pointless comparison of unsigned integer with zero
   		if ((address >= 0) && (address < MEM1_FRAME_SIZE)){
 Sources\eerom.c(29): warning:  #186-D: pointless comparison of unsigned integer with zero
   		if ((address >= 0) && (address < MEM1_FRAME_SIZE)){
 Sources\eerom.c: 2 warnings, 0 errors
-compiling wdt.c...
-compiling sysinit.c...
-compiling main.c...
-compiling mko.c...
-compiling uarts.c...
 compiling timers.c...
-compiling crc16.c...
 compiling gpio.c...
 Sources\gpio.c(19): warning:  #61-D: integer operation result is out of range
-  			if(on) 
-ORTB->CRXTX = 
-MKO_SHIFT;
+  			if(on) PORTB->CRXTX = AMKO_SHIFT;
 Sources\gpio.c(19): warning:  #68-D: integer conversion resulted in a change of sign
-  			if(on) 
-ORTB->CRXTX = 
-MKO_SHIFT;
+  			if(on) PORTB->CRXTX = AMKO_SHIFT;
 Sources\gpio.c(20): warning:  #61-D: integer operation result is out of range
-  			else   
-ORTB->SRXTX = 
-MKO_SHIFT;
+  			else   PORTB->SRXTX = AMKO_SHIFT;
 Sources\gpio.c(20): warning:  #68-D: integer conversion resulted in a change of sign
-  			else   
-ORTB->SRXTX = 
-MKO_SHIFT;
+  			else   PORTB->SRXTX = AMKO_SHIFT;
 Sources\gpio.c: 4 warnings, 0 errors
+compiling crc16.c...
 compiling power_management.c...
-compiling stm.c...
-compiling mpp.c...
 compiling mbkap.c...
+compiling stm.c...
 assembling startup_MDR1986VE8T.s...
+compiling mpp.c...
 compiling dir.c...
+compiling core_cm4.c...
 linking...
-Program Size: Code=19454 RO-data=1238 RW-data=552 ZI-data=4864  
+Program Size: Code=19414 RO-data=1142 RW-data=552 ZI-data=4864  
 FromELF: creating hex file...
 ".\Objs\1986ve8_proj.axf" - 0 Error(s), 6 Warning(s).
+
+<h2>Software Packages used:</h2>
+
+Package Vendor: ARM
+                http://www.keil.com/pack/ARM.CMSIS.5.7.0.pack
+                ARM.CMSIS.5.7.0
+                CMSIS (Cortex Microcontroller Software Interface Standard)
+   * Component: CORE Version: 5.4.0
+
+Package Vendor: Keil
+                http://www.keil.com/pack/Keil.MDR1986VE8T.0.4.1.pack
+                Keil.MDR1986VE8T.0.4.1
+                Milandr MDR1986VE8T Series Device Support, Drivers and Examples
+
+<h2>Collection of Component include folders:</h2>
+  .\RTE\_Target__ExtMEM_Dbg_
+  C:\Users\a-sty\AppData\Local\Arm\Packs\ARM\CMSIS\5.7.0\CMSIS\Core\Include
+  C:\Users\a-sty\AppData\Local\Arm\Packs\Keil\MDR1986VE8T\0.4.1\Libraries\CMSIS\CM4\DeviceSupport\MDR32F8\inc
+
+<h2>Collection of Component Files used:</h2>
+
+   * Component: ARM::CMSIS:CORE:5.4.0
 Build Time Elapsed:  00:00:02
 </pre>
 </body>

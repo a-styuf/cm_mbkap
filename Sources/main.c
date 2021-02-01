@@ -163,15 +163,15 @@ int main() {
 			}
 		}
 		//***Прием команд по МКО
-        if (MKO_IVect(&cm.mko_error, &cm.mko_error_cnt) != 0x0000){
+		if (MKO_IVect(&cm.mko_error, &cm.mko_error_cnt) != 0x0000){
 			if (mko_dev.subaddr == COMMAND_MESSAGE_SA) {  //обработка командных сообщений
-                if (mko_dev.data[0] == 0x0001) {  //  синхронизация времени
+				if (mko_dev.data[0] == 0x0001) {  //  синхронизация времени
 					Get_Time_sec_parts(&cm.sync_time_s, &cm.sync_time_low);
 					uint64_val = ((uint64_t)mko_dev.data[1] << 32) + ((uint64_t)mko_dev.data[2] << 16); // + ((uint64_t)mko_dev.data[3] << 0)) & 0xFFFFFFFFFFFF; часть для дробной синхронизации
 					Time_Set(uint64_val, &cm.diff_time_s, &cm.diff_time_low);
 					MPP_time_set();
 					cm.sync_num += 1;
-                }
+				}
 				else if (mko_dev.data[0] == 0x0002) {  //  инициализация ЦМ
 					// перевключение питания
 					Pwr_Off_All_Devices();  // 1000 мс
@@ -195,7 +195,7 @@ int main() {
 					Time_Set(0, &cm.diff_time_s, &cm.diff_time_low);
 					//инициализация структуры управления
 					CM_Parame_Command_Init(&cm);
-                }
+				}
 				else if (mko_dev.data[0] == 0x0003) {  //  установка измерительного интервала
 					if (mko_dev.data[1] == 0){  // измерительный интервал
 						cm.measure_interval = get_val_from_bound(mko_dev.data[2], 10, 3600);
@@ -246,7 +246,7 @@ int main() {
 				else if (mko_dev.data[0] == 0x000D) {  // управление напряжением работы ДИР
 					dnt.ctrl.mode = mko_dev.data[1];
 				}
-			}    
+			}
 			else if(mko_dev.subaddr == ARCH_FRAME_REQ_SA){  // обновление кадра на ПА из ЗУ ЦМ
 				Load_Data_Frame(&cm);
 			}
@@ -274,17 +274,16 @@ int main() {
 				// todo: доделать тех подадрес
 				Write_to_SubAddr(TECH_COMMAND_SA, dbg_data);
 			}
-        }
+		}
 		//***Отладочный порт //работает по команде 0х10 !!!
-        if(Debug_Get_Packet(&reg_addr, dbg_data, &leng) == 0x01) 
-        {
-            if((reg_addr == 0x00) & (leng >= 2)){  // проверка адресации
+		if(Debug_Get_Packet(&reg_addr, dbg_data, &leng) == 0x01) {
+			if((reg_addr == 0x00) & (leng >= 2)){  // проверка адресации
 				cm.debug = ((dbg_data[1] >> 8) & 0x01) ^ 0x01;
 			}
 			else if ((reg_addr == 0x01) & (leng >= 2)) {
 				GPIO_Pwr((dbg_data[0] >> 8), (dbg_data[1] >> 8) & 0x01);
 			}
-        }
+		}
 	}
 }
 
