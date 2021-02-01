@@ -246,7 +246,11 @@ int main() {
 				else if (mko_dev.data[0] == 0x000D) {  // управление напряжением работы ДИР
 					dnt.ctrl.mode = mko_dev.data[1];
 				}
+<<<<<<< HEAD
 			}
+=======
+			}    
+>>>>>>> master
 			else if(mko_dev.subaddr == ARCH_FRAME_REQ_SA){  // обновление кадра на ПА из ЗУ ЦМ
 				Load_Data_Frame(&cm);
 			}
