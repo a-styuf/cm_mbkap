@@ -59,6 +59,7 @@
 #define MPP27_ID 2 
 #define MPP100_ID 3
 #define DIR_ID 4
+#define NU_ID 15
 // параметры переферийных устройств
 #define DNT_MKO_ADDR 19
 #define DNT_DEV_NUM 2  // тип аппаратуры: мелкосерийный ДНТ (определяет Игорь Щепихин)
@@ -243,6 +244,7 @@ uint8_t get_mko_addr(uint8_t def_addr);
 int8_t Debug_Get_Packet (uint16_t* reg_addr, uint16_t* data, uint8_t* leng);
 // ВШ
 int8_t F_Trans(typeCMParameters* cm_ptr, uint8_t code, uint8_t dev_id, uint16_t start_addr, uint16_t cnt, uint16_t * data_arr); //функция, позволяющая отправлять стандартизованные ModBus запросы/ответы
+void F16_IB_data_transfer(typeCMParameters* cm_ptr, uint8_t dev_id, uint16_t start_addr, uint16_t cnt, uint16_t * data_arr); //функция, позволяющая отправлять дополнительные данные в ModBus
 uint16_t Tech_SA_Transaction(uint16_t *data_arr); // функция для трансляции данных из МКО в ВШ
 //получение идентификационной строки для переферии
 int8_t Pereph_On_and_Get_ID_Frame(uint8_t dev_num, typeDevStartInformation* dev_init_inf_ptr); //включаем переферии и получаем от нее идентификационный пакет

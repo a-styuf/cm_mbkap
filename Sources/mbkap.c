@@ -633,6 +633,26 @@ int8_t F_Trans(typeCMParameters* cm_ptr, uint8_t code, uint8_t dev_id, uint16_t 
 	}
 }
 
+void F16_IB_data_transfer(typeCMParameters* cm_ptr, uint8_t dev_id, uint16_t start_addr, uint16_t cnt, uint16_t * data_arr) //функция, позволяющая отправлять дополнительные данные в ModBus
+{
+  uint8_t out_leng = 0;
+	if (cm_ptr->debug) return;
+	else {
+		// формирование запроса
+		out_buff[0] = dev_id;
+		out_buff[1] = 0x10;
+		out_buff[2] = start_addr >> 8;
+		out_buff[3] = start_addr & 0xFF;
+		out_buff[4] = 0x00;
+		out_buff[5] = cnt;
+		out_buff[6] = cnt*2;
+		memcpy(&out_buff[7], (uint8_t*)data_arr, cnt*2);    
+		out_leng = cnt*2+7;
+		//
+		UART0_SendPacket(out_buff, out_leng, 1);  //отправляем запрос
+	}
+}
+
 uint16_t Tech_SA_Transaction(uint16_t *data_arr) // функция для трансляции данных из МКО в ВШ
 {
 	int8_t status = 0;

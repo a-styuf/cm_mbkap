@@ -151,7 +151,8 @@ int main() {
 						//
 					}
 					break;
-				case 8:
+				case 8: // Отправка системного кадра в ВШ
+						F16_IB_data_transfer(&cm, NU_ID, 0x00, 32, (uint16_t*)&sys_frame);
 					break;
 				case 9:
 					if (cm.measure_state & (0x1 << ADII_FRAME_NUM)){
@@ -246,11 +247,7 @@ int main() {
 				else if (mko_dev.data[0] == 0x000D) {  // управление напряжением работы ДИР
 					dnt.ctrl.mode = mko_dev.data[1];
 				}
-<<<<<<< HEAD
 			}
-=======
-			}    
->>>>>>> master
 			else if(mko_dev.subaddr == ARCH_FRAME_REQ_SA){  // обновление кадра на ПА из ЗУ ЦМ
 				Load_Data_Frame(&cm);
 			}

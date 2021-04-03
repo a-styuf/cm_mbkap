@@ -3,7 +3,6 @@
 <pre>
 <h1>µVision Build Log</h1>
 <h2>Tool Versions:</h2>
-<<<<<<< HEAD
 IDE-Version: µVision V5.32.0.0
 Copyright (C) 2020 ARM Ltd and ARM Germany GmbH. All rights reserved.
 License Information: Vasya a-styuf@yandex.ru, Pupk, LIC=WHYH9-47SJE-Y8VFK-Z2M7J-BRK7L-12XCV
@@ -23,16 +22,14 @@ Dialog DLL:      TCM.DLL V1.46.0.0
  
 <h2>Project:</h2>
 D:\YandexDisk\Work\Microcontrolers\1986ÂÅ8\cm_mbkap\1986ve8_proj.uvprojx
-Project File Date:  01/30/2021
+Project File Date:  02/01/2021
 
 <h2>Output:</h2>
 *** Using Compiler 'V5.06 update 7 (build 960)', folder: 'C:\Keil_v5\ARM\ARMCC\Bin'
 Rebuild target 'Target (ExtMEM Dbg)'
-compiling uarts.c...
-compiling mko.c...
-compiling adc.c...
-compiling main.c...
 compiling wdt.c...
+compiling uarts.c...
+compiling adc.c...
 compiling sysinit.c...
 compiling eerom.c...
 Sources\eerom.c(9): warning:  #186-D: pointless comparison of unsigned integer with zero
@@ -40,7 +37,10 @@ Sources\eerom.c(9): warning:  #186-D: pointless comparison of unsigned integer w
 Sources\eerom.c(29): warning:  #186-D: pointless comparison of unsigned integer with zero
   		if ((address >= 0) && (address < MEM1_FRAME_SIZE)){
 Sources\eerom.c: 2 warnings, 0 errors
+compiling mko.c...
+compiling main.c...
 compiling timers.c...
+compiling crc16.c...
 compiling gpio.c...
 Sources\gpio.c(19): warning:  #61-D: integer operation result is out of range
   			if(on) PORTB->CRXTX = AMKO_SHIFT;
@@ -51,54 +51,21 @@ Sources\gpio.c(20): warning:  #61-D: integer operation result is out of range
 Sources\gpio.c(20): warning:  #68-D: integer conversion resulted in a change of sign
   			else   PORTB->SRXTX = AMKO_SHIFT;
 Sources\gpio.c: 4 warnings, 0 errors
-compiling crc16.c...
 compiling power_management.c...
-compiling mbkap.c...
-compiling stm.c...
-assembling startup_MDR1986VE8T.s...
 compiling mpp.c...
+compiling stm.c...
+compiling mbkap.c...
+assembling startup_MDR1986VE8T.s...
 compiling dir.c...
 compiling core_cm4.c...
 linking...
-Program Size: Code=19414 RO-data=1142 RW-data=552 ZI-data=4864  
+Program Size: Code=19534 RO-data=1142 RW-data=552 ZI-data=4864  
 FromELF: creating hex file...
 ".\Objs\1986ve8_proj.axf" - 0 Error(s), 6 Warning(s).
-=======
-IDE-Version: µVision V5.24.2.0
-Copyright (C) 2017 ARM Ltd and ARM Germany GmbH. All rights reserved.
-License Information: a a, a, LIC=FQQMM-XB1DT-VJZ6J-U4RDW-A9NMM-T3G9I
- 
-Tool Versions:
-Toolchain:       MDK-ARM Professional  Version: 5.24.1
-Toolchain Path:  C:\Keil_v5\ARM\ARMCC\Bin
-C Compiler:      Armcc.exe V5.06 update 5 (build 528)
-Assembler:       Armasm.exe V5.06 update 5 (build 528)
-Linker/Locator:  ArmLink.exe V5.06 update 5 (build 528)
-Library Manager: ArmAr.exe V5.06 update 5 (build 528)
-Hex Converter:   FromElf.exe V5.06 update 5 (build 528)
-CPU DLL:         SARMCM3.DLL V5.24.1
-Dialog DLL:      DCM.DLL V1.16.0.0
-Target DLL:      UL2CM3.DLL V1.160.3.0
-Dialog DLL:      TCM.DLL V1.32.0.0
- 
-<h2>Project:</h2>
-D:\Work\MBKAP\cm_mbkap\1986ve8_proj.uvprojx
-Project File Date:  10/11/2019
-
-<h2>Output:</h2>
-*** Using Compiler 'V5.06 update 5 (build 528)', folder: 'C:\Keil_v5\ARM\ARMCC\Bin'
-Build target 'Target (ExtMEM Rls)'
-compiling crc16.c...
-linking...
-Program Size: Code=19434 RO-data=1238 RW-data=552 ZI-data=4864  
-FromELF: creating hex file...
-".\Objs\1986ve8_proj.axf" - 0 Error(s), 0 Warning(s).
->>>>>>> master
 
 <h2>Software Packages used:</h2>
 
 Package Vendor: ARM
-<<<<<<< HEAD
                 http://www.keil.com/pack/ARM.CMSIS.5.7.0.pack
                 ARM.CMSIS.5.7.0
                 CMSIS (Cortex Microcontroller Software Interface Standard)
@@ -118,18 +85,6 @@ Package Vendor: Keil
 
    * Component: ARM::CMSIS:CORE:5.4.0
 Build Time Elapsed:  00:00:02
-=======
-                http://www.keil.com/pack/ARM.CMSIS.5.6.0.pack
-                ARM.CMSIS.5.6.0
-                CMSIS (Cortex Microcontroller Software Interface Standard)
-
-<h2>Collection of Component include folders:</h2>
-  .\RTE\_Target__ExtMEM_Rls_
-  C:\Keil_v5\ARM\PACK\ARM\CMSIS\5.6.0\Device\ARM\ARMCM4\Include
-
-<h2>Collection of Component Files used:</h2>
-Build Time Elapsed:  00:00:01
->>>>>>> master
 </pre>
 </body>
 </html>
